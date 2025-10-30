@@ -1,0 +1,16 @@
+{
+  "protocol-version": "1.1",
+  "allowed-origins": [
+    "chrome-devtools://*",
+    "devtools://*",
+    "*://*:*"
+  ],
+  "scopes": [
+    "debugger",
+    "console",
+    "network",
+    "filesystem"
+  ],
+  "persistent": false,
+  "description": "HR Co-Pilot Development Server - Chrome DevTools Integration"
+}

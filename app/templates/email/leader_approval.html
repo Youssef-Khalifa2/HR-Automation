@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approval Required</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f8f9fa; padding: 20px; border-radius: 8px 8px 0 0; }
+        .content { background: white; padding: 20px; border: 1px solid #dee2e6; }
+        .employee-info { background: #e9ecef; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .button { display: inline-block; padding: 12px 24px; margin: 10px 5px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+        .approve { background: #28a745; color: white; }
+        .reject { background: #dc3545; color: white; }
+        .footer { background: #f8f9fa; padding: 15px; border-radius: 0 0 8px 8px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🔔 Approval Required: Employee Resignation</h2>
+            <p>An employee resignation has been submitted and requires your approval.</p>
+        </div>
+
+        <div class="content">
+            <div class="employee-info">
+                <h3>Employee Information</h3>
+                <p><strong>Name:</strong> {{ employee_name }}</p>
+                <p><strong>Email:</strong> {{ employee_email }}</p>
+                <p><strong>Submission Date:</strong> {{ submission_date }}</p>
+                <p><strong>Last Working Day:</strong> {{ last_working_day }}</p>
+            </div>
+
+            <p>Please review this resignation request and take action:</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ approval_url }}" class="button approve">📋 Review & Take Action</a>
+            </div>
+
+            <p><strong>Important:</strong></p>
+            <ul>
+                <li>On the approval page, you can choose to approve or reject this request</li>
+                <li>If you reject, you must provide specific reasons for the rejection</li>
+                <li>This link is secure and will expire in 24 hours</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated message from the HR Automation System.</p>
+            <p>Date: {{ current_date }} | If you have questions, please contact HR.</p>
+        </div>
+    </div>
+</body>
+</html>

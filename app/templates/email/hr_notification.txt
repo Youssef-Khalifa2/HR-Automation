@@ -1,0 +1,41 @@
+HR NOTIFICATION: EMPLOYEE RESIGNATION UPDATE
+
+{% if message_type == 'new_submission' %}
+🆕 NEW RESIGNATION SUBMISSION
+A new resignation has been submitted for {{ employee_name }} ({{ employee_email }}).
+
+{% elif message_type == 'leader_approved' %}
+✅ LEADER APPROVED
+The resignation of {{ employee_name }} has been approved by the Team Leader and is now with the CHM for final approval.
+
+{% elif message_type == 'chm_approved' %}
+✅ CHM APPROVED - READY FOR HR PROCESSING
+The resignation of {{ employee_name }} has received final approval from the CHM. Please proceed with HR processing.
+
+{% elif message_type == 'chm_rejected' %}
+❌ CHM REJECTED
+The resignation of {{ employee_name }} has been rejected by the CHM.
+
+{% elif message_type == 'leader_rejected' %}
+❌ LEADER REJECTED
+The resignation of {{ employee_name }} has been rejected by the Team Leader.
+{% endif %}
+
+EMPLOYEE DETAILS:
+- Name: {{ employee_name }}
+- Email: {{ employee_email }}
+{% if submission_data.last_working_day %}
+- Last Working Day: {{ submission_data.last_working_day }}
+{% endif %}
+{% if submission_data.leader_notes %}
+- Leader Notes: {{ submission_data.leader_notes }}
+{% endif %}
+{% if submission_data.chinese_head_notes %}
+- CHM Notes: {{ submission_data.chinese_head_notes }}
+{% endif %}
+
+Please log in to the HR system for more details and to take appropriate action.
+
+---
+This is an automated message from the HR Automation System.
+Date: {{ current_date }}

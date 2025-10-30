@@ -1,0 +1,33 @@
+CHM APPROVAL REQUIRED: EMPLOYEE RESIGNATION
+
+A resignation request has been approved by the Team Leader and requires your final approval.
+
+EMPLOYEE INFORMATION:
+- Name: {{ employee_name }}
+- Email: {{ employee_email }}
+- Submission Date: {{ submission_date }}
+- Last Working Day: {{ last_working_day }}
+
+{% if leader_approved %}
+TEAM LEADER APPROVAL:
+✅ This request has been approved by the Team Leader.
+{% if leader_notes %}
+Leader Notes: {{ leader_notes }}
+{% endif %}
+{% endif %}
+
+ACTION REQUIRED:
+Please provide your final approval for this resignation request:
+
+FINAL REVIEW & DECIDE: {{ approval_url }}
+
+IMPORTANT:
+- Your approval is final and will initiate the offboarding process
+- On the approval page, you can choose to approve or reject this request
+- If you reject, you must provide specific reasons for the rejection
+- This link is secure and will expire in 24 hours
+
+---
+This is an automated message from the HR Automation System.
+Date: {{ current_date }}
+If you have questions, please contact HR.

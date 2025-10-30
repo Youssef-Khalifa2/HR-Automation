@@ -1,0 +1,24 @@
+APPROVAL REQUIRED: EMPLOYEE RESIGNATION
+
+An employee resignation has been submitted and requires your approval.
+
+EMPLOYEE INFORMATION:
+- Name: {{ employee_name }}
+- Email: {{ employee_email }}
+- Submission Date: {{ submission_date }}
+- Last Working Day: {{ last_working_day }}
+
+ACTION REQUIRED:
+Please review this resignation request and take action:
+
+REVIEW & DECIDE: {{ approval_url }}
+
+IMPORTANT:
+- On the approval page, you can choose to approve or reject this request
+- If you reject, you must provide specific reasons for the rejection
+- This link is secure and will expire in 24 hours
+
+---
+This is an automated message from the HR Automation System.
+Date: {{ current_date }}
+If you have questions, please contact HR.

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}HR Co-Pilot - Login{% endblock %}
+
+{% block main_content %}
+<div class="company-header text-center">
+    <h1><i class="fas fa-user-tie me-2"></i>HR Co-Pilot</h1>
+    <p class="lead">Employee Offboarding Automation Platform</p>
+</div>
+
+<div class="login-container">
+    <div class="card login-card">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <i class="fas fa-shield-alt text-primary" style="font-size: 3rem;"></i>
+                <h4 class="mt-3">HR Login</h4>
+                <p class="text-muted">Access the HR offboarding dashboard</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email Address</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-envelope"></i>
+                        </span>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                    </button>
+                </div>
+            </form>
+
+            <div id="errorAlert" class="alert alert-danger mt-3" style="display: none;">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <span id="errorMessage"></span>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    For HR personnel only. Other users receive email links.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="fas fa-paper-plane text-primary" style="font-size: 2rem;"></i>
+                    <h5 class="card-title mt-3">Automated Workflow</h5>
+                    <p class="card-text">Streamlined resignation process with automated notifications and approvals.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="fas fa-users text-success" style="font-size: 2rem;"></i>
+                    <h5 class="card-title mt-3">Role-Based Access</h5>
+                    <p class="card-text">Different access levels for HR, Team Leaders, and Department Heads.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="fas fa-chart-line text-warning" style="font-size: 2rem;"></i>
+                    <h5 class="card-title mt-3">Real-Time Tracking</h5>
+                    <p class="card-text">Monitor resignation progress and get insights on offboarding trends.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(e.target);
+        const loginData = {
+            email: formData.get('email'),
+            password: formData.get('password')
+        };
+
+        try {
+            const response = await apiCall('POST', '/auth/login', loginData);
+
+            // Store token and user info
+            localStorage.setItem('token', response.access_token);
+            localStorage.setItem('user', JSON.stringify(response.user));
+
+            // Set up axios for future requests
+            axios.defaults.headers.common['Authorization'] = `Bearer ${response.access_token}`;
+
+            // Redirect to dashboard
+            window.location.href = '/dashboard';
+
+        } catch (error) {
+            const errorAlert = document.getElementById('errorAlert');
+            const errorMessage = document.getElementById('errorMessage');
+
+            if (error.response?.data?.detail) {
+                errorMessage.textContent = error.response.data.detail;
+            } else {
+                errorMessage.textContent = 'Login failed. Please try again.';
+            }
+
+            errorAlert.style.display = 'block';
+        }
+        });
+    }
+
+        // Check if already authenticated
+        if (isAuthenticated()) {
+            window.location.href = '/dashboard';
+        }
+    });
+</script>
+{% endblock %}

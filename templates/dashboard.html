@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}HR Co-Pilot - Dashboard{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Submissions</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalSubmissions">-</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-file-alt fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending Approvals</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="pendingApprovals">-</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-clock fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Completed This Month</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="completedMonth">-</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Exit Interviews</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="exitInterviews">-</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-comments fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Submissions -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold">Recent Resignation Submissions</h6>
+                <a href="/submissions" class="btn btn-sm btn-primary">View All</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Department</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentSubmissionsTable">
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="sr-only">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Quick Actions -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">Quick Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" onclick="window.location.href='/submissions?action=new'">
+                        <i class="fas fa-plus me-2"></i>New Submission
+                    </button>
+                    <button class="btn btn-info" onclick="refreshDashboard()">
+                        <i class="fas fa-sync me-2"></i>Refresh Data
+                    </button>
+                    <button class="btn btn-warning" onclick="window.location.href='/reports'">
+                        <i class="fas fa-chart-bar me-2"></i>View Reports
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Items -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">Pending Items</h6>
+            </div>
+            <div class="card-body">
+                <div id="pendingItemsList">
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let dashboardData = {};
+
+    async function loadDashboardData() {
+        try {
+            // Load basic stats
+            const submissions = await apiCall('GET', '/submissions?limit=1000');
+
+            // Calculate stats
+            const total = submissions.length;
+            const pending = submissions.filter(s =>
+                s.resignation_status === 'submitted' ||
+                s.resignation_status === 'leader_approved'
+            ).length;
+
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            const completed = submissions.filter(s => {
+                const date = new Date(s.created_at);
+                return s.resignation_status === 'offboarded' &&
+                       date.getMonth() === currentMonth &&
+                       date.getFullYear() === currentYear;
+            }).length;
+
+            const exitInterviews = submissions.filter(s =>
+                s.exit_interview_status === 'scheduled' ||
+                s.exit_interview_status === 'not_scheduled'
+            ).length;
+
+            // Update stats
+            document.getElementById('totalSubmissions').textContent = total;
+            document.getElementById('pendingApprovals').textContent = pending;
+            document.getElementById('completedMonth').textContent = completed;
+            document.getElementById('exitInterviews').textContent = exitInterviews;
+
+            // Load recent submissions
+            const recentSubmissions = submissions
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .slice(0, 10);
+
+            renderRecentSubmissions(recentSubmissions);
+            renderPendingItems(submissions);
+
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            showError('Failed to load dashboard data');
+        }
+    }
+
+    function renderRecentSubmissions(submissions) {
+        const tbody = document.getElementById('recentSubmissionsTable');
+
+        if (submissions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No submissions found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = submissions.map(submission => `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="ms-2">
+                            <div class="fw-bold">${submission.employee_name}</div>
+                            <small class="text-muted">${submission.employee_email}</small>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="badge bg-secondary">${submission.department}</span></td>
+                <td><span class="badge ${getStatusBadgeClass(submission.resignation_status)}">${submission.resignation_status.replace('_', ' ')}</span></td>
+                <td><small>${formatDate(submission.created_at)}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewSubmission(${submission.id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function renderPendingItems(submissions) {
+        const pendingList = document.getElementById('pendingItemsList');
+        const pendingItems = submissions.filter(s =>
+            s.resignation_status === 'submitted' ||
+            s.resignation_status === 'leader_approved' ||
+            (s.resignation_status === 'chm_approved' && s.exit_interview_status === 'not_scheduled')
+        ).slice(0, 5);
+
+        if (pendingItems.length === 0) {
+            pendingList.innerHTML = '<p class="text-muted text-center mb-0">No pending items</p>';
+            return;
+        }
+
+        pendingList.innerHTML = pendingItems.map(item => {
+            let action = '';
+            let icon = '';
+
+            if (item.resignation_status === 'submitted') {
+                action = 'Leader approval';
+                icon = 'fa-user-tie';
+            } else if (item.resignation_status === 'leader_approved') {
+                action = 'CHM approval';
+                icon = 'fa-user';
+            } else {
+                action = 'Schedule interview';
+                icon = 'fa-calendar';
+            }
+
+            return `
+                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                    <div>
+                        <div class="fw-bold">${item.employee_name}</div>
+                        <small class="text-muted">${action}</small>
+                    </div>
+                    <i class="fas ${icon} text-muted"></i>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function viewSubmission(id) {
+        window.location.href = `/submissions/${id}`;
+    }
+
+    function refreshDashboard() {
+        loadDashboardData();
+    }
+
+    function showError(message) {
+        // Simple error display - could be enhanced with toast notifications
+        console.error(message);
+    }
+
+    // Load data when page loads
+    document.addEventListener('DOMContentLoaded', loadDashboardData);
+</script>
+{% endblock %}

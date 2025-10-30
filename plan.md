@@ -4,7 +4,7 @@ Goal: ship a working offboarding automation by next week. Keep it simple, avoid 
 
 0) What we are building (one paragraph)
 
-A tiny web platform plus background jobs that take a Feishu resignation form and walk the submission through approvals (Team Leader then Chinese Head), exit interview, IT/assets review, medical card confirmation, and finalization. Hazem (super user) manages the flow from a dashboard. Emails contain signed links that flip the current step for a single submissions record. IT fills a short asset form. We send a final vendor notification and mark the case complete.
+A tiny web platform plus background jobs that take a Feishu resignation form and walk the submission through approvals (Team Leader then Chinese Head), exit interview, IT/assets review, medical card confirmation, and finalization. The HR team (super users) manage the flow from a dashboard. Emails contain signed links that flip the current step for a single submissions record. IT fills a short asset form. We send a final vendor notification and mark the case complete.
 
 1) Workflow (MVP)
 
@@ -22,21 +22,21 @@ Approve: resignation_status = chm_approved.
 Reject: notes required -> resignation_status = chm_rejected -> stop.
 
 Exit interview
-Email to Hazem with schedule link (optionally include ICS).
-Hazem sets exit_interview_status to scheduled once a time is confirmed.
-After it happens, Hazem clicks Mark Done -> exit_interview_status = done, resignation_status = exit_done.
+Email to HR with schedule link (optionally include ICS).
+HR sets exit_interview_status to scheduled once a time is confirmed.
+After it happens, HR clicks Mark Done -> exit_interview_status = done, resignation_status = exit_done.
 
 IT and assets
 Email to IT/Admin with link to Asset Form (signed token).
 Form captures laptop, mouse, headphones (booleans), others (free text), approved (overall clearance).
 Submitting the form creates or upserts the assets row, updates it_support_reply (true for approved, false for rejected or partial), and sets resignation_status = assets_recorded.
-Hazem is notified of the result.
+HR is notified of the result.
 
 Medical card
-Hazem marks Medical Card collected -> medical_card_collected = true, resignation_status = medical_checked.
+HR marks Medical Card collected -> medical_card_collected = true, resignation_status = medical_checked.
 
 Finalize
-Hazem clicks Finish -> send vendor email, set vendor_mail_sent = true, resignation_status = offboarded.
+HR clicks Finish -> send vendor email, set vendor_mail_sent = true, resignation_status = offboarded.
 
 Reminders
 Cron hits POST /api/check_pending every 5 minutes.
@@ -59,32 +59,32 @@ Key fields we rely on:
 
 Keep it to four screens.
 
-Login: email + password (hashed) with role check.
+Login: HR email + password (hashed). Only HR accounts can access the platform; all other departments interact solely through signed email links.
 
-Resignation Tracker (home): table of submissions with filters (resignation_status, date range). Actions per row based on role:
-- View (all internal roles).
-- Mark interview scheduled/done (Hazem).
-- Toggle medical card collected (Hazem).
-- Finalize (Hazem).
+Resignation Tracker (home): HR-only table of submissions with filters (resignation_status, date range). Actions per row:
+- View submission details.
+- Mark interview scheduled/done.
+- Toggle medical card collected.
+- Finalize offboarding.
 
-Asset Tracker: grid keyed by resignation_status, it_support_reply, and assets.approved. Hazem and HR can open the IT form view (read-only for them) to review submissions; IT can reach the form via email link but can also log in to the Asset Tracker if needed.
+Asset Tracker: HR-only grid keyed by resignation_status, it_support_reply, and assets.approved. HR can review the asset responses and resend the signed form link if needed. IT never logs in; they rely entirely on the emailed signed link.
 
 Full view (single submission):
 - Employee details + generated fields (in_probation, notice_period_days).
 - Current status chips for resignation_status and exit_interview_status.
-- Buttons depending on role and current step:
-  * Leader/CHM approval (also accessible via email links).
-  * Mark interview scheduled/done (Hazem).
-  * Open/submit asset form (IT).
-  * Medical card toggle (Hazem).
-  * Finalize and send vendor mail (Hazem).
+- HR actions:
+  * Review leader/CHM approval state (primary decisions still happen via email links).
+  * Mark interview scheduled/done.
+  * View asset form status and resend the signed link.
+  * Toggle medical card collected.
+  * Finalize and send vendor mail.
 - History list showing updated_at changes and key transitions.
 
 Email-only pages (public, signed):
 - /approve/leader?token=...&decision=approve|reject (+ optional notes).
 - /approve/chm?token=...&decision=approve|reject (+ optional notes).
 - /assets/form?token=... (booleans, notes, approved checkbox).
-Each renders a confirmation UI, calls the backend, and redirects to a success page.
+Each renders a confirmation UI, calls the backend, and redirects to a success page. These are the only non-HR-accessible pages and require a valid signed link (no login).
 
 4) Backend (FastAPI recommended)
 
@@ -109,7 +109,7 @@ Dashboard:
 - GET /api/submissions -> list with filters.
 - GET /api/submissions/:id -> detail.
 - PATCH /api/submissions/:id -> role-restricted updates:
-  * Hazem: exit_interview_status, medical_card_collected, vendor_mail_sent, resignation_status.
+  * HR: exit_interview_status, medical_card_collected, vendor_mail_sent, resignation_status.
   * IT: updates via assets/submit endpoint (no direct PATCH).
 
 Jobs:
@@ -131,13 +131,13 @@ Business logic outline:
 - Feishu POST -> create submission, send leader email, resignation_status = submitted.
 - Leader approve -> team_leader_reply = true, resignation_status = leader_approved, email CHM.
 - Leader reject -> team_leader_reply = false, store notes, resignation_status = leader_rejected.
-- CHM approve -> chinese_head_reply = true, resignation_status = chm_approved, email Hazem to schedule interview.
+- CHM approve -> chinese_head_reply = true, resignation_status = chm_approved, email HR to schedule interview.
 - CHM reject -> chinese_head_reply = false, store notes, resignation_status = chm_rejected.
-- Hazem schedules interview -> exit_interview_status = scheduled (optional).
-- Hazem marks interview done -> exit_interview_status = done, resignation_status = exit_done, email IT.
-- IT submits assets -> upsert assets row, set it_support_reply = approved (true or false), resignation_status = assets_recorded, notify Hazem.
-- Hazem toggles medical card -> medical_card_collected = true, resignation_status = medical_checked.
-- Hazem finalizes -> send vendor email, vendor_mail_sent = true, resignation_status = offboarded.
+- HR schedules interview -> exit_interview_status = scheduled (optional).
+- HR marks interview done -> exit_interview_status = done, resignation_status = exit_done, email IT.
+- IT submits assets -> upsert assets row, set it_support_reply = approved (true or false), resignation_status = assets_recorded, notify HR.
+- HR toggles medical card -> medical_card_collected = true, resignation_status = medical_checked.
+- HR finalizes -> send vendor email, vendor_mail_sent = true, resignation_status = offboarded.
 
 Reminders (cron details):
 - Every 5 minutes evaluate submissions in waiting states (submitted, leader_approved, exit_done).
@@ -147,7 +147,7 @@ Reminders (cron details):
 5) Security (MVP level)
 
 - Password hashing (bcrypt) for platform users.
-- Signed tokens for email links with 14-day expiry.
+- Signed tokens for email links with 24-hour expiry.
 - Server-side role checks on every mutation.
 - Basic input validation; limit free text lengths (notes, others).
 - Log token failures for investigation.
@@ -165,20 +165,20 @@ Reminders (cron details):
 
 - Day 1: Repo scaffold, DB schema migration, auth (users), basic CRUD for submissions.
 - Day 2: Email helper + token signing; implement Feishu POST + leader email; leader/CHM approval endpoints + pages.
-- Day 3: Hazem dashboard actions; exit interview scheduling/done flow + IT notification.
+- Day 3: HR dashboard actions; exit interview scheduling/done flow + IT notification.
 - Day 4: Asset form + submit; status transitions; vendor email + finalize endpoint.
 - Day 5: Dashboard tables and filters; reminder cron with last_reminded_at; polish validation.
 - Day 6: End-to-end test with sample mailbox; fix deliverability; add simple logging.
-- Day 7: UAT with Hazem; tweak copy; deploy to production.
+- Day 7: UAT with HR; tweak copy; deploy to production.
 
 8) Acceptance checklist
 
 - Feishu submission creates record with resignation_status = submitted and sends leader email.
 - Leader approve/reject works with required notes rules and updates resignation_status.
-- CHM approve/reject works and notifies Hazem on approval.
-- Hazem can schedule and mark the interview done; IT receives asset form link.
-- IT can submit asset statuses; Hazem is notified; resignation_status updates to assets_recorded.
-- Hazem can mark medical card collected and finalize; vendor email goes out; resignation_status = offboarded.
+- CHM approve/reject works and notifies HR on approval.
+- HR can schedule and mark the interview done; IT receives asset form link.
+- IT can submit asset statuses; HR is notified; resignation_status updates to assets_recorded.
+- HR can mark medical card collected and finalize; vendor email goes out; resignation_status = offboarded.
 - Dashboard shows accurate statuses, including exit_interview_status, and filters operate correctly.
 - Reminders fire after 24 hours of inactivity for pending actors without duplication.
 - All links require valid tokens and respect role/step alignment.

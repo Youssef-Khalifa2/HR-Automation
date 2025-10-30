@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHM Approval Required</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f8f9fa; padding: 20px; border-radius: 8px 8px 0 0; }
+        .content { background: white; padding: 20px; border: 1px solid #dee2e6; }
+        .employee-info { background: #e9ecef; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .leader-info { background: #d4edda; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .button { display: inline-block; padding: 12px 24px; margin: 10px 5px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+        .approve { background: #28a745; color: white; }
+        .reject { background: #dc3545; color: white; }
+        .footer { background: #f8f9fa; padding: 15px; border-radius: 0 0 8px 8px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🔔 CHM Approval Required: Employee Resignation</h2>
+            <p>A resignation request has been approved by the Team Leader and requires your final approval.</p>
+        </div>
+
+        <div class="content">
+            <div class="employee-info">
+                <h3>Employee Information</h3>
+                <p><strong>Name:</strong> {{ employee_name }}</p>
+                <p><strong>Email:</strong> {{ employee_email }}</p>
+                <p><strong>Submission Date:</strong> {{ submission_date }}</p>
+                <p><strong>Last Working Day:</strong> {{ last_working_day }}</p>
+            </div>
+
+            {% if leader_approved %}
+            <div class="leader-info">
+                <h3>✅ Team Leader Approval</h3>
+                <p>This request has been approved by the Team Leader.</p>
+                {% if leader_notes %}
+                <p><strong>Leader Notes:</strong> {{ leader_notes }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <p>Please provide your final approval for this resignation request:</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ approval_url }}" class="button approve">📋 Final Review & Decision</a>
+            </div>
+
+            <p><strong>Important:</strong></p>
+            <ul>
+                <li>Your approval is final and will initiate the offboarding process</li>
+                <li>On the approval page, you can choose to approve or reject this request</li>
+                <li>If you reject, you must provide specific reasons for the rejection</li>
+                <li>This link is secure and will expire in 24 hours</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated message from the HR Automation System.</p>
+            <p>Date: {{ current_date }} | If you have questions, please contact HR.</p>
+        </div>
+    </div>
+</body>
+</html>

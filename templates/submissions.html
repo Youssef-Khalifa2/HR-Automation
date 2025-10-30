@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+
+{% block title %}HR Co-Pilot - Resignation Submissions{% endblock %}
+
+{% block page_title %}Resignation Submissions{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold">Filters</h6>
+    </div>
+    <div class="card-body">
+        <form id="filterForm" class="row g-3">
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">Status</label>
+                <select class="form-select" id="statusFilter" name="resignation_status">
+                    <option value="">All Statuses</option>
+                    <option value="submitted">Submitted</option>
+                    <option value="leader_approved">Leader Approved</option>
+                    <option value="leader_rejected">Leader Rejected</option>
+                    <option value="chm_approved">CHM Approved</option>
+                    <option value="chm_rejected">CHM Rejected</option>
+                    <option value="exit_done">Exit Done</option>
+                    <option value="assets_recorded">Assets Recorded</option>
+                    <option value="medical_checked">Medical Checked</option>
+                    <option value="offboarded">Offboarded</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="departmentFilter" class="form-label">Department</label>
+                <input type="text" class="form-control" id="departmentFilter" name="department" placeholder="Filter by department">
+            </div>
+            <div class="col-md-2">
+                <label for="dateFrom" class="form-label">Date From</label>
+                <input type="date" class="form-control" id="dateFrom" name="date_from">
+            </div>
+            <div class="col-md-2">
+                <label for="dateTo" class="form-label">Date To</label>
+                <input type="date" class="form-control" id="dateTo" name="date_to">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-1"></i>Apply Filters
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Submissions Table -->
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold">Submissions</h6>
+        <div>
+            <button class="btn btn-success btn-sm" onclick="showCreateModal()">
+                <i class="fas fa-plus me-1"></i>New Submission
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="exportData()">
+                <i class="fas fa-download me-1"></i>Export
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Position</th>
+                        <th>Status</th>
+                        <th>Exit Interview</th>
+                        <th>Last Working Day</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="submissionsTable">
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <nav aria-label="Submissions pagination">
+            <ul class="pagination justify-content-center" id="pagination">
+                <!-- Pagination will be generated dynamically -->
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade" id="submissionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">New Submission</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="submissionForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="employeeName" class="form-label">Employee Name *</label>
+                                <input type="text" class="form-control" id="employeeName" name="employee_name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="employeeEmail" class="form-label">Employee Email *</label>
+                                <input type="email" class="form-control" id="employeeEmail" name="employee_email" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="employeeId" class="form-label">Employee ID *</label>
+                                <input type="text" class="form-control" id="employeeId" name="employee_id" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="department" class="form-label">Department *</label>
+                                <input type="text" class="form-control" id="department" name="department" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="position" class="form-label">Position *</label>
+                                <input type="text" class="form-control" id="position" name="position" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hireDate" class="form-label">Hire Date *</label>
+                                <input type="date" class="form-control" id="hireDate" name="hire_date" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="resignationDate" class="form-label">Resignation Date *</label>
+                                <input type="date" class="form-control" id="resignationDate" name="resignation_date" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="lastWorkingDay" class="form-label">Last Working Day *</label>
+                                <input type="date" class="form-control" id="lastWorkingDay" name="last_working_day" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="noticePeriodDays" class="form-label">Notice Period (days)</label>
+                                <input type="number" class="form-control" id="noticePeriodDays" name="notice_period_days" value="30">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="inProbation" name="in_probation">
+                                <label class="form-check-label" for="inProbation">
+                                    In Probation Period
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSubmission()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Submission Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="viewModalBody">
+                <!-- Content loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = 0;
+    let totalPages = 0;
+    let currentFilters = {};
+
+    async function loadSubmissions(page = 0, filters = {}) {
+        try {
+            const params = new URLSearchParams({
+                skip: page * 100,
+                limit: 100,
+                ...filters
+            });
+
+            const submissions = await apiCall('GET', `/submissions?${params}`);
+            renderSubmissionsTable(submissions);
+
+        } catch (error) {
+            console.error('Error loading submissions:', error);
+            showError('Failed to load submissions');
+        }
+    }
+
+    function renderSubmissionsTable(submissions) {
+        const tbody = document.getElementById('submissionsTable');
+
+        if (submissions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No submissions found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = submissions.map(submission => `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="ms-2">
+                            <div class="fw-bold">${submission.employee_name}</div>
+                            <small class="text-muted">${submission.employee_email}</small>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="badge bg-secondary">${submission.department}</span></td>
+                <td>${submission.position}</td>
+                <td><span class="badge ${getStatusBadgeClass(submission.resignation_status)}">${submission.resignation_status.replace('_', ' ')}</span></td>
+                <td><span class="badge bg-info">${submission.exit_interview_status.replace('_', ' ')}</span></td>
+                <td><small>${formatDate(submission.last_working_day)}</small></td>
+                <td><small>${formatDate(submission.created_at)}</small></td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewSubmission(${submission.id})" title="View">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning" onclick="editSubmission(${submission.id})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteSubmission(${submission.id})" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function showCreateModal() {
+        document.getElementById('modalTitle').textContent = 'New Submission';
+        document.getElementById('submissionForm').reset();
+        document.getElementById('submissionForm').dataset.id = '';
+        new bootstrap.Modal(document.getElementById('submissionModal')).show();
+    }
+
+    async function viewSubmission(id) {
+        try {
+            const submission = await apiCall('GET', `/submissions/${id}`);
+            renderSubmissionView(submission);
+            new bootstrap.Modal(document.getElementById('viewModal')).show();
+        } catch (error) {
+            console.error('Error loading submission:', error);
+            showError('Failed to load submission details');
+        }
+    }
+
+    function renderSubmissionView(submission) {
+        const modalBody = document.getElementById('viewModalBody');
+
+        modalBody.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Employee Information</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Name:</strong></td><td>${submission.employee_name}</td></tr>
+                        <tr><td><strong>Email:</strong></td><td>${submission.employee_email}</td></tr>
+                        <tr><td><strong>Employee ID:</strong></td><td>${submission.employee_id}</td></tr>
+                        <tr><td><strong>Department:</strong></td><td>${submission.department}</td></tr>
+                        <tr><td><strong>Position:</strong></td><td>${submission.position}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Employment Details</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Hire Date:</strong></td><td>${formatDate(submission.hire_date)}</td></tr>
+                        <tr><td><strong>Resignation Date:</strong></td><td>${formatDate(submission.resignation_date)}</td></tr>
+                        <tr><td><strong>Last Working Day:</strong></td><td>${formatDate(submission.last_working_day)}</td></tr>
+                        <tr><td><strong>Notice Period:</strong></td><td>${submission.notice_period_days} days</td></tr>
+                        <tr><td><strong>In Probation:</strong></td><td>${submission.in_probation ? 'Yes' : 'No'}</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <h6>Workflow Status</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Resignation Status:</strong></td><td><span class="badge ${getStatusBadgeClass(submission.resignation_status)}">${submission.resignation_status.replace('_', ' ')}</span></td></tr>
+                        <tr><td><strong>Exit Interview:</strong></td><td><span class="badge bg-info">${submission.exit_interview_status.replace('_', ' ')}</span></td></tr>
+                        <tr><td><strong>Team Leader Reply:</strong></td><td>${submission.team_leader_reply ? 'Approved' : (submission.team_leader_reply === false ? 'Rejected' : 'Pending')}</td></tr>
+                        <tr><td><strong>Chinese Head Reply:</strong></td><td>${submission.chinese_head_reply ? 'Approved' : (submission.chinese_head_reply === false ? 'Rejected' : 'Pending')}</td></tr>
+                        <tr><td><strong>IT Support Reply:</strong></td><td>${submission.it_support_reply ? 'Cleared' : (submission.it_support_reply === false ? 'Issue' : 'Pending')}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Additional Information</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Medical Card Collected:</strong></td><td>${submission.medical_card_collected ? 'Yes' : 'No'}</td></tr>
+                        <tr><td><strong>Vendor Mail Sent:</strong></td><td>${submission.vendor_mail_sent ? 'Yes' : 'No'}</td></tr>
+                        <tr><td><strong>Created:</strong></td><td>${formatDate(submission.created_at)}</td></tr>
+                        <tr><td><strong>Last Updated:</strong></td><td>${formatDate(submission.updated_at)}</td></tr>
+                    </table>
+                </div>
+            </div>
+            ${submission.leader_notes ? `<div class="mt-3"><h6>Leader Notes:</h6><p>${submission.leader_notes}</p></div>` : ''}
+            ${submission.chm_notes ? `<div class="mt-3"><h6>CHM Notes:</h6><p>${submission.chm_notes}</p></div>` : ''}
+            ${submission.exit_interview_notes ? `<div class="mt-3"><h6>Exit Interview Notes:</h6><p>${submission.exit_interview_notes}</p></div>` : ''}
+        `;
+    }
+
+    async function saveSubmission() {
+        const form = document.getElementById('submissionForm');
+        const formData = new FormData(form);
+        const submissionId = form.dataset.id;
+
+        const submissionData = {
+            employee_name: formData.get('employee_name'),
+            employee_email: formData.get('employee_email'),
+            employee_id: formData.get('employee_id'),
+            department: formData.get('department'),
+            position: formData.get('position'),
+            hire_date: formData.get('hire_date'),
+            resignation_date: formData.get('resignation_date'),
+            last_working_day: formData.get('last_working_day'),
+            notice_period_days: parseInt(formData.get('notice_period_days')),
+            in_probation: formData.has('in_probation')
+        };
+
+        try {
+            if (submissionId) {
+                await apiCall('PATCH', `/submissions/${submissionId}`, submissionData);
+                showMessage('Submission updated successfully', 'success');
+            } else {
+                await apiCall('POST', '/submissions/', submissionData);
+                showMessage('Submission created successfully', 'success');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('submissionModal')).hide();
+            loadSubmissions(currentPage, currentFilters);
+
+        } catch (error) {
+            console.error('Error saving submission:', error);
+            showMessage('Failed to save submission', 'error');
+        }
+    }
+
+    async function deleteSubmission(id) {
+        if (!confirm('Are you sure you want to delete this submission?')) {
+            return;
+        }
+
+        try {
+            await apiCall('DELETE', `/submissions/${id}`);
+            showMessage('Submission deleted successfully', 'success');
+            loadSubmissions(currentPage, currentFilters);
+        } catch (error) {
+            console.error('Error deleting submission:', error);
+            showMessage('Failed to delete submission', 'error');
+        }
+    }
+
+    function showMessage(message, type) {
+        // Simple message display - could be enhanced with toast notifications
+        console.log(`${type}: ${message}`);
+    }
+
+    function showError(message) {
+        showMessage(message, 'error');
+    }
+
+    function exportData() {
+        // Export functionality placeholder
+        showMessage('Export functionality coming soon', 'info');
+    }
+
+    // Event listeners
+    document.getElementById('filterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        currentFilters = Object.fromEntries(formData.entries());
+        currentPage = 0;
+        loadSubmissions(currentPage, currentFilters);
+    });
+
+    // Load initial data
+    document.addEventListener('DOMContentLoaded', () => {
+        loadSubmissions();
+    });
+</script>
+{% endblock %}
