@@ -13,9 +13,9 @@ import AssetsPage from './pages/AssetsPage';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true, // Auto-refresh when switching tabs
       retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 30 * 1000, // 30 seconds - reduced for better freshness
     },
   },
 });

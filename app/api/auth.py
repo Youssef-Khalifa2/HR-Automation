@@ -37,7 +37,7 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         )
 
         from app.schemas_all import UserResponse
-        print(f"✓ Login successful for: {user.email}")
+        print(f"[OK] Login successful for: {user.email}")
         return {
             "access_token": access_token,
             "token_type": "bearer",

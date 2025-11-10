@@ -24,7 +24,8 @@ import {
 } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
 import { formatDate } from '../lib/utils';
-import { Calendar, CheckCircle, Clock, Users } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Users, RefreshCw } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function ExitInterviewsPage() {
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -33,10 +34,26 @@ export default function ExitInterviewsPage() {
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<number | null>(null);
   const [selectedInterviewId, setSelectedInterviewId] = useState<number | null>(null);
 
-  const { data: stats } = useExitInterviewStats();
-  const { data: upcoming } = useUpcomingInterviews(30);
-  const { data: pendingFeedback } = usePendingFeedback();
-  const { data: pendingScheduling } = usePendingScheduling();
+  const { data: stats, refetch: refetchStats } = useExitInterviewStats();
+  const { data: upcoming, refetch: refetchUpcoming } = useUpcomingInterviews(30);
+  const { data: pendingFeedback, refetch: refetchPendingFeedback } = usePendingFeedback();
+  const { data: pendingScheduling, refetch: refetchPendingScheduling } = usePendingScheduling();
+
+  const handleRefresh = async () => {
+    toast.promise(
+      Promise.all([
+        refetchStats(),
+        refetchUpcoming(),
+        refetchPendingFeedback(),
+        refetchPendingScheduling()
+      ]),
+      {
+        loading: 'Refreshing interviews...',
+        success: 'Interviews refreshed successfully',
+        error: 'Failed to refresh interviews'
+      }
+    );
+  };
 
   const scheduleInterview = useScheduleInterview();
   const submitFeedback = useSubmitFeedback();
@@ -51,7 +68,7 @@ export default function ExitInterviewsPage() {
   });
 
   const [feedbackForm, setFeedbackForm] = useState({
-    exit_interview_id: 0,
+    interview_id: 0,
     interview_feedback: '',
     interview_rating: 5,
     hr_notes: '',
@@ -77,7 +94,7 @@ export default function ExitInterviewsPage() {
       onSuccess: () => {
         setFeedbackModalOpen(false);
         setFeedbackForm({
-          exit_interview_id: 0,
+          interview_id: 0,
           interview_feedback: '',
           interview_rating: 5,
           hr_notes: '',
@@ -99,9 +116,15 @@ export default function ExitInterviewsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Exit Interviews</h1>
-        <p className="text-muted-foreground">Manage exit interview scheduling and feedback</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Exit Interviews</h1>
+          <p className="text-muted-foreground">Manage exit interview scheduling and feedback</p>
+        </div>
+        <Button onClick={handleRefresh} variant="outline" size="sm">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -154,7 +177,7 @@ export default function ExitInterviewsPage() {
           {pendingScheduling && pendingScheduling.length > 0 ? (
             <div className="space-y-3">
               {pendingScheduling.map((submission: any) => (
-                <div key={submission.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                <div key={submission.submission_id} className="flex items-center justify-between border-b pb-2 last:border-0">
                   <div>
                     <p className="font-medium">{submission.employee_name}</p>
                     <p className="text-sm text-muted-foreground">{submission.employee_email}</p>
@@ -163,7 +186,7 @@ export default function ExitInterviewsPage() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        setScheduleForm({ ...scheduleForm, submission_id: submission.id });
+                        setScheduleForm({ ...scheduleForm, submission_id: submission.submission_id });
                         setScheduleModalOpen(true);
                       }}
                     >
@@ -173,7 +196,7 @@ export default function ExitInterviewsPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setSelectedSubmissionId(submission.id);
+                        setSelectedSubmissionId(submission.submission_id);
                         setSkipModalOpen(true);
                       }}
                     >
@@ -199,9 +222,9 @@ export default function ExitInterviewsPage() {
           {upcoming && upcoming.length > 0 ? (
             <div className="space-y-3">
               {upcoming.map((interview) => (
-                <div key={interview.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                <div key={interview.interview_id} className="flex items-center justify-between border-b pb-2 last:border-0">
                   <div>
-                    <p className="font-medium">{interview.submission?.employee_name}</p>
+                    <p className="font-medium">{interview.employee_name}</p>
                     <p className="text-sm text-muted-foreground">
                       {formatDate(interview.scheduled_date)} at {interview.scheduled_time}
                     </p>
@@ -209,6 +232,16 @@ export default function ExitInterviewsPage() {
                       {interview.location} | {interview.interviewer}
                     </p>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedSubmissionId(interview.submission_id);
+                      setSkipModalOpen(true);
+                    }}
+                  >
+                    Skip
+                  </Button>
                 </div>
               ))}
             </div>
@@ -228,9 +261,9 @@ export default function ExitInterviewsPage() {
           {pendingFeedback && pendingFeedback.length > 0 ? (
             <div className="space-y-3">
               {pendingFeedback.map((interview) => (
-                <div key={interview.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                <div key={interview.interview_id} className="flex items-center justify-between border-b pb-2 last:border-0">
                   <div>
-                    <p className="font-medium">{interview.submission?.employee_name}</p>
+                    <p className="font-medium">{interview.employee_name}</p>
                     <p className="text-sm text-muted-foreground">
                       Interviewed on {formatDate(interview.scheduled_date)}
                     </p>
@@ -238,7 +271,7 @@ export default function ExitInterviewsPage() {
                   <Button
                     size="sm"
                     onClick={() => {
-                      setFeedbackForm({ ...feedbackForm, exit_interview_id: interview.id });
+                      setFeedbackForm({ ...feedbackForm, interview_id: interview.interview_id });
                       setFeedbackModalOpen(true);
                     }}
                   >
@@ -373,18 +406,29 @@ export default function ExitInterviewsPage() {
           <DialogHeader>
             <DialogTitle>Skip Exit Interview</DialogTitle>
             <DialogDescription>
-              Skip the exit interview process for this employee
+              Skip the exit interview and send IT notification for asset collection
             </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Are you sure you want to skip this interview? This will expedite the offboarding process.
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to skip this interview?
+            </p>
+            <p className="text-sm font-medium">
+              This will:
+            </p>
+            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+              <li>Mark the exit interview as skipped</li>
+              <li>Send an email to IT for asset collection immediately</li>
+              <li>Update the submission status to "exit_done"</li>
+              <li>Expedite the offboarding process</li>
+            </ul>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSkipModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleSkip} disabled={skipInterview.isPending}>
-              {skipInterview.isPending ? 'Skipping...' : 'Skip Interview'}
+              {skipInterview.isPending ? 'Skipping...' : 'Skip & Notify IT'}
             </Button>
           </DialogFooter>
         </DialogContent>

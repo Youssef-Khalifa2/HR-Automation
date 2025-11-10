@@ -88,30 +88,24 @@ class SubmissionResponse(SubmissionBase):
 
 # Asset schemas
 class AssetBase(BaseModel):
-    laptop: Optional[bool] = None
-    mouse: Optional[bool] = None
-    headphones: Optional[bool] = None
-    others: Optional[str] = None
-    approved: Optional[bool] = None
+    assets_returned: Optional[bool] = False
+    notes: Optional[str] = None
 
 
 class AssetCreate(AssetBase):
-    res_id: int  # Match DB column name
+    pass  # res_id comes from URL path parameter, not request body
 
 
 class AssetUpdate(BaseModel):
-    laptop: Optional[bool] = None
-    mouse: Optional[bool] = None
-    headphones: Optional[bool] = None
-    others: Optional[str] = None
-    approved: Optional[bool] = None
+    assets_returned: Optional[bool] = None
+    notes: Optional[str] = None
 
 
 class AssetResponse(AssetBase):
     id: int
     res_id: int  # Match DB column name
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

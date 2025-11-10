@@ -108,6 +108,13 @@
                 <li>Assign interviewer</li>
                 <li>Send automatic invitation to employee</li>
             </ul>
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <p><strong>Or Skip Interview:</strong></p>
+                <p style="font-size: 14px; color: #666;">If the exit interview cannot be conducted or is not necessary, you can skip it and proceed directly to asset collection.</p>
+                {% if skip_url %}
+                <a href="{{ skip_url }}" class="btn" style="background: #6c757d; margin-top: 10px;">Skip Interview & Notify IT</a>
+                {% endif %}
+            </div>
         </div>
 
         <div class="info-box">

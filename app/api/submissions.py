@@ -30,15 +30,28 @@ def create_submission_endpoint(
 
 @router.get("/", response_model=List[SubmissionResponse])
 def list_submissions(
-    resignation_status: Optional[str] = Query(None),
-    date_from: Optional[str] = Query(None),
-    date_to: Optional[str] = Query(None),
+    resignation_status: Optional[str] = Query(None, description="Filter by resignation status"),
+    exit_interview_status: Optional[str] = Query(None, description="Filter by exit interview status"),
+    it_asset_cleared: Optional[bool] = Query(None, description="Filter by IT asset clearance status"),
+    medical_card_collected: Optional[bool] = Query(None, description="Filter by medical card collection status"),
+    vendor_mail_sent: Optional[bool] = Query(None, description="Filter by vendor notification status"),
+    date_from: Optional[str] = Query(None, description="Filter submissions created from this date"),
+    date_to: Optional[str] = Query(None, description="Filter submissions created until this date"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db)
     # current_user: User = Depends(get_current_hr_user)  # Temporarily removed for debugging
 ):
-    """List submissions with optional filters"""
+    """List submissions with enhanced filtering options
+
+    Supports filtering by:
+    - Resignation status (submitted, leader_approved, chm_approved, etc.)
+    - Exit interview status (not_scheduled, scheduled, completed, etc.)
+    - IT asset clearance status (cleared or not)
+    - Medical card collection status
+    - Vendor notification status
+    - Date range (created_at)
+    """
     from datetime import datetime
 
     # Parse filters
@@ -61,6 +74,10 @@ def list_submissions(
         skip=skip,
         limit=limit,
         resignation_status=resignation_status,
+        exit_interview_status=exit_interview_status,
+        it_asset_cleared=it_asset_cleared,
+        medical_card_collected=medical_card_collected,
+        vendor_mail_sent=vendor_mail_sent,
         date_from=date_from_dt,
         date_to=date_to_dt
     )
@@ -124,58 +141,51 @@ async def resend_approval_request(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_hr_user)
 ):
-    """Resend approval request for a submission"""
+    """Intelligently resend the appropriate email based on current submission stage"""
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+
         # Get submission
         submission = get_submission(db, submission_id)
         if not submission:
             raise HTTPException(status_code=404, detail="Submission not found")
 
-        # Get leader mapping service
+        # Import services
         from app.services.leader_mapping import get_leader_mapping
+        from app.services.email import get_email_service, EmailTemplates
+        from app.core.security import get_approval_token_service
+        from app.services.tokenized_forms import get_tokenized_form_service
+        from config import BASE_URL, settings
+
         leader_mapping = get_leader_mapping()
+        email_service = get_email_service()
+        token_service = get_approval_token_service()
+        form_token_service = get_tokenized_form_service()
 
-        # Determine who to resend to based on current status
-        resend_to_leader = False
-        resend_to_chm = False
-        leader_email = None
-        leader_name = None
+        email_sent = None
+        email_type = None
 
-        # Check if we need to resend to leader
-        if submission.resignation_status in ["submitted", "leader_rejected"]:
-            resend_to_leader = True
-            # Try to get leader info from mapping or use defaults
-            submission_leader_name = getattr(submission, 'leader_name', None)
+        # Determine current stage and send appropriate email
+        resignation_status = submission.resignation_status
+        exit_status = submission.exit_interview_status
+
+        # Stage 1: Waiting for Leader Approval
+        if resignation_status in ["submitted", "leader_rejected"]:
+            email_type = "Leader Approval Request"
+
+            # Get leader info
+            submission_leader_name = getattr(submission, 'team_leader', None)
+            leader_email = "youssefkhalifa@51talk.com"
+            leader_name = "Team Leader"
+
             if submission_leader_name:
                 leader_info = leader_mapping.get_leader_info(submission_leader_name)
                 if leader_info:
                     leader_email = leader_info['leader_email']
                     leader_name = leader_info['leader_name']
-                else:
-                    leader_email = "youssefkhalifa@51talk.com"
-                    leader_name = submission_leader_name
-            else:
-                leader_email = "youssefkhalifa@51talk.com"
-                leader_name = "Team Leader"
 
-        # Check if we need to resend to CHM
-        elif submission.resignation_status == "leader_approved":
-            resend_to_chm = True
-
-        # Send appropriate emails
-        from app.services.email import get_email_service, EmailTemplates
-        from app.core.security import get_approval_token_service
-        from config import BASE_URL
-        import logging
-        logger = logging.getLogger(__name__)
-
-        email_service = get_email_service()
-        token_service = get_approval_token_service()
-
-        emails_sent = []
-
-        if resend_to_leader and leader_email:
-            # Generate leader approval URL
+            # Generate approval URL
             approval_url = token_service.generate_approval_url(
                 submission_id=submission_id,
                 action="approve",
@@ -183,7 +193,6 @@ async def resend_approval_request(
                 base_url=BASE_URL
             )
 
-            # Create leader email
             email_data = {
                 "employee_name": submission.employee_name,
                 "employee_email": submission.employee_email,
@@ -192,21 +201,29 @@ async def resend_approval_request(
                 "leader_email": leader_email,
                 "leader_name": leader_name,
                 "department": getattr(submission, 'department', 'General'),
-                "position": getattr(submission, 'position', 'Employee'),
-                "reason": getattr(submission, 'reason', 'Resubmitted for approval')
+                "position": getattr(submission, 'position', 'Employee')
             }
 
             email_message = EmailTemplates.leader_approval_request(email_data, approval_url)
             success = await email_service.send_email(email_message)
+            email_sent = leader_email
 
-            if success:
-                emails_sent.append(f"Leader approval request sent to {leader_email}")
-                logger.info(f"Resent leader approval email for submission {submission_id} to {leader_email}")
-            else:
-                raise HTTPException(status_code=500, detail="Failed to resend leader approval email")
+        # Stage 2: Waiting for CHM Approval
+        elif resignation_status == "leader_approved":
+            email_type = "CHM Approval Request"
 
-        if resend_to_chm:
-            # Generate CHM approval URL
+            # Get CHM info
+            chm_email = "youssefkhalifa458@gmail.com"
+            chm_name = "Chinese Head"
+
+            submission_leader_name = getattr(submission, 'team_leader', None)
+            if submission_leader_name:
+                leader_info = leader_mapping.get_leader_info(submission_leader_name)
+                if leader_info and leader_info.get('chm_email'):
+                    chm_email = leader_info['chm_email']
+                    chm_name = leader_info['chm_name']
+
+            # Generate approval URL
             approval_url = token_service.generate_approval_url(
                 submission_id=submission_id,
                 action="approve",
@@ -214,19 +231,6 @@ async def resend_approval_request(
                 base_url=BASE_URL
             )
 
-            # Get CHM email info
-            chm_email = "youssefkhalifa458@gmail.com"  # Default fallback
-            chm_name = "Chinese Head"
-
-            # Try to find CHM through leader mapping
-            submission_leader_name = getattr(submission, 'leader_name', None)
-            if submission_leader_name:
-                leader_info = leader_mapping.get_leader_info(submission_leader_name)
-                if leader_info and leader_info.get('chm_email'):
-                    chm_email = leader_info['chm_email']
-                    chm_name = leader_info['chm_name']
-
-            # Create CHM email
             email_data = {
                 "employee_name": submission.employee_name,
                 "employee_email": submission.employee_email,
@@ -240,26 +244,172 @@ async def resend_approval_request(
 
             email_message = EmailTemplates.chm_approval_request(email_data, approval_url)
             success = await email_service.send_email(email_message)
+            email_sent = chm_email
 
-            if success:
-                emails_sent.append(f"CHM approval request sent to {chm_email}")
-                logger.info(f"Resent CHM approval email for submission {submission_id} to {chm_email}")
+        # Stage 3: Waiting for Exit Interview Scheduling
+        elif resignation_status == "chm_approved" and exit_status == "not_scheduled":
+            email_type = "HR Interview Scheduling Request"
+
+            # Generate tokenized form URL for scheduling
+            form_data = {
+                "submission_id": submission_id,
+                "employee_name": submission.employee_name,
+                "employee_email": submission.employee_email,
+                "employee_id": getattr(submission, 'employee_id', ''),
+                "position": getattr(submission, 'position', 'Employee'),
+                "department": getattr(submission, 'department', 'General'),
+                "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
+                "submission_date": submission.submission_date.strftime("%Y-%m-%d")
+            }
+
+            form_token = form_token_service.generate_secure_token(form_data)
+            interview_url = f"{BASE_URL}/api/forms/schedule-interview?token={form_token}"
+
+            email_data = {
+                "employee_name": submission.employee_name,
+                "employee_email": submission.employee_email,
+                "submission_id": submission_id,
+                "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
+                "submission_date": submission.submission_date.strftime("%Y-%m-%d"),
+                "leader_notes": submission.team_leader_notes or "",
+                "chinese_head_notes": submission.chinese_head_notes or ""
+            }
+
+            email_message = EmailTemplates.hr_interview_scheduling_request(email_data, interview_url)
+            success = await email_service.send_email(email_message)
+            email_sent = settings.HR_EMAIL
+
+        # Stage 4: Waiting for Interview Feedback Submission
+        elif exit_status == "scheduled":
+            email_type = "HR Interview Feedback Reminder"
+
+            # Get interview details
+            from app.models.exit_interview import ExitInterview
+            interview = db.query(ExitInterview).filter(
+                ExitInterview.submission_id == submission_id
+            ).first()
+
+            if interview:
+                from datetime import datetime
+                days_overdue = (datetime.utcnow() - interview.scheduled_date).days if interview.scheduled_date else 0
+
+                email_data = {
+                    "employee_name": submission.employee_name,
+                    "employee_email": submission.employee_email,
+                    "department": getattr(submission, 'department', 'General'),
+                    "position": getattr(submission, 'position', 'Employee'),
+                    "interview_date": interview.scheduled_date.strftime("%Y-%m-%d") if interview.scheduled_date else "",
+                    "interview_time": interview.scheduled_time or "",
+                    "location": interview.location or "HR Meeting Room",
+                    "days_overdue": max(0, days_overdue),
+                    "interview_id": interview.id
+                }
+
+                email_message = EmailTemplates.hr_submit_feedback_reminder(email_data)
+                success = await email_service.send_email(email_message)
+                email_sent = settings.HR_EMAIL
             else:
-                raise HTTPException(status_code=500, detail="Failed to resend CHM approval email")
+                raise HTTPException(status_code=404, detail="Exit interview not found")
+
+        # Stage 5: Waiting for IT Clearance
+        elif resignation_status == "exit_done" and not submission.it_support_reply:
+            email_type = "IT Clearance Request"
+
+            # Generate IT clearance form token
+            it_clearance_token = form_token_service.generate_secure_token({
+                "form_type": "it_clearance",
+                "submission_id": submission_id,
+                "employee_name": submission.employee_name,
+                "created_for": "it_clearance"
+            })
+
+            # Create IT clearance form URL
+            clearance_form_url = f"{BASE_URL}/api/forms/complete-it-clearance?token={it_clearance_token}"
+
+            email_data = {
+                "employee_name": submission.employee_name,
+                "employee_email": submission.employee_email,
+                "department": getattr(submission, 'department', 'General'),
+                "position": getattr(submission, 'position', 'Employee'),
+                "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
+                "submission_id": submission_id
+            }
+
+            email_message = EmailTemplates.it_clearance_request(email_data, clearance_form_url)
+            success = await email_service.send_email(email_message)
+            email_sent = settings.IT_EMAIL
+
+        # Stage 6: Waiting for Medical Card Collection (manual - no email)
+        elif resignation_status in ["assets_recorded"] and not submission.medical_card_collected:
+            raise HTTPException(
+                status_code=400,
+                detail="Medical card collection is a manual process. Please mark as collected in the dashboard."
+            )
+
+        # Stage 7: Waiting for Vendor Notification
+        elif resignation_status == "medical_checked" and not submission.vendor_mail_sent:
+            email_type = "Vendor Offboarding Notification"
+
+            # Get vendor email
+            vendor_email = leader_mapping.get_vendor_email(
+                department=getattr(submission, 'department', None),
+                leader_name=getattr(submission, 'team_leader', None)
+            )
+
+            if not vendor_email:
+                raise HTTPException(status_code=500, detail="Could not determine vendor email")
+
+            email_data = {
+                "employee_name": submission.employee_name,
+                "employee_email": submission.employee_email,
+                "department": getattr(submission, 'department', 'General'),
+                "position": getattr(submission, 'position', 'Employee'),
+                "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
+                "submission_id": submission_id,
+                "final_notes": ""
+            }
+
+            email_message = EmailTemplates.vendor_offboarding_notification(email_data, vendor_email)
+            success = await email_service.send_email(email_message)
+            email_sent = vendor_email
+
+        # Stage 8: Process Complete
+        elif resignation_status == "offboarded":
+            raise HTTPException(
+                status_code=400,
+                detail="Offboarding process is complete. No further emails needed."
+            )
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot determine appropriate email for status: {resignation_status}, exit status: {exit_status}"
+            )
+
+        if not success:
+            raise HTTPException(status_code=500, detail=f"Failed to send {email_type} email")
+
+        logger.info(f"✅ Resent {email_type} for submission {submission_id} to {email_sent}")
 
         return {
-            "message": "Approval request resent successfully",
+            "message": f"{email_type} resent successfully",
             "submission_id": submission_id,
             "employee_name": submission.employee_name,
-            "current_status": submission.resignation_status,
-            "emails_sent": emails_sent
+            "resignation_status": resignation_status,
+            "exit_interview_status": exit_status,
+            "email_type": email_type,
+            "email_sent_to": email_sent
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to resend approval request for submission {submission_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to resend approval request: {str(e)}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to resend email for submission {submission_id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to resend email: {str(e)}")
 
 
 # Phase 3: Corrected Exit Interview Management APIs
@@ -272,7 +422,7 @@ def get_pending_scheduling_interviews(
     """Get submissions that need exit interview scheduling"""
     try:
         from app.crud_exit_interview import get_interviews_needing_scheduling
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         submissions = get_interviews_needing_scheduling(db)
 
@@ -281,9 +431,9 @@ def get_pending_scheduling_interviews(
             # Calculate days since approval
             days_since_approval = 0
             if submission.resignation_status == "leader_approved" and submission.updated_at:
-                days_since_approval = (datetime.utcnow() - submission.updated_at).days
+                days_since_approval = (datetime.now(timezone.utc) - submission.updated_at).days
             elif submission.resignation_status == "chm_approved" and submission.updated_at:
-                days_since_approval = (datetime.utcnow() - submission.updated_at).days
+                days_since_approval = (datetime.now(timezone.utc) - submission.updated_at).days
 
             pending_items.append({
                 "submission_id": submission.id,
@@ -309,7 +459,7 @@ def get_pending_scheduling_interviews(
         raise HTTPException(status_code=500, detail="Failed to get pending scheduling interviews")
 
 
-@router.post("/exit-interviews/schedule")
+@router.post("/exit-interviews/schedule/")
 async def schedule_exit_interview(
     schedule_request: dict,
     db: Session = Depends(get_db),
@@ -454,7 +604,7 @@ def get_upcoming_interviews(
         raise HTTPException(status_code=500, detail="Failed to get upcoming interviews")
 
 
-@router.post("/exit-interviews/submit-feedback")
+@router.post("/exit-interviews/submit-feedback/")
 async def submit_interview_feedback(
     feedback_request: dict,
     db: Session = Depends(get_db),
@@ -534,7 +684,23 @@ async def mark_interview_complete(
 
         # Send IT notification for assets collection
         try:
+            from app.services.tokenized_forms import get_tokenized_form_service
+            from config import BASE_URL
+
             email_service = get_email_service()
+            form_token_service = get_tokenized_form_service()
+
+            # Generate IT clearance form token
+            it_clearance_token = form_token_service.generate_secure_token({
+                "form_type": "it_clearance",
+                "submission_id": submission.id,
+                "employee_name": submission.employee_name,
+                "created_for": "it_clearance"
+            })
+
+            # Create IT clearance form URL
+            clearance_form_url = f"{BASE_URL}/api/forms/complete-it-clearance?token={it_clearance_token}"
+
             email_data = {
                 "employee_name": submission.employee_name,
                 "employee_email": submission.employee_email,
@@ -547,7 +713,7 @@ async def mark_interview_complete(
                 "interview_feedback": interview.interview_feedback or "Interview completed"
             }
 
-            email_message = EmailTemplates.it_clearance_request(email_data)
+            email_message = EmailTemplates.it_clearance_request(email_data, clearance_form_url)
             await email_service.send_email(email_message)
 
         except Exception as email_error:
@@ -592,6 +758,158 @@ def get_exit_interview_statistics(
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to get interview statistics: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get interview statistics")
+
+
+@router.post("/{submission_id}/medical-card/")
+async def toggle_medical_card(
+    submission_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_hr_user)
+):
+    """Mark medical card as collected and update status to medical_checked"""
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Get submission
+        submission = get_submission(db, submission_id)
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+
+        # Validate prerequisite - assets must be cleared
+        if not submission.it_support_reply:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot mark medical card as collected - IT assets must be cleared first"
+            )
+
+        # Update medical card collection status
+        submission.medical_card_collected = True
+        submission.resignation_status = ResignationStatus.MEDICAL_CHECKED.value
+
+        db.commit()
+        db.refresh(submission)
+
+        logger.info(f"✅ Medical card marked as collected for submission {submission_id}")
+
+        return {
+            "message": "Medical card marked as collected successfully",
+            "submission_id": submission_id,
+            "employee_name": submission.employee_name,
+            "resignation_status": submission.resignation_status,
+            "medical_card_collected": submission.medical_card_collected
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to mark medical card as collected: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to mark medical card as collected: {str(e)}")
+
+
+@router.post("/{submission_id}/finalize/")
+async def finalize_offboarding(
+    submission_id: int,
+    finalize_request: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_hr_user)
+):
+    """Finalize offboarding - send vendor email and mark as offboarded"""
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Get submission
+        submission = get_submission(db, submission_id)
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+
+        # Validate prerequisites
+        if submission.resignation_status != ResignationStatus.MEDICAL_CHECKED.value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot finalize - current status is {submission.resignation_status}. Status must be 'medical_checked'"
+            )
+
+        if not submission.it_support_reply:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot finalize - IT assets must be cleared"
+            )
+
+        if not submission.medical_card_collected:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot finalize - medical card must be collected"
+            )
+
+        # Get vendor email from leader mapping service
+        from app.services.leader_mapping import get_leader_mapping
+        from app.services.email import get_email_service, EmailTemplates
+
+        leader_mapping = get_leader_mapping()
+        vendor_email = leader_mapping.get_vendor_email(
+            department=getattr(submission, 'department', None),
+            leader_name=submission.team_leader
+        )
+
+        if not vendor_email:
+            raise HTTPException(
+                status_code=500,
+                detail="Could not determine vendor email address"
+            )
+
+        # Prepare email data
+        email_service = get_email_service()
+        final_notes = finalize_request.get("final_notes", "")
+
+        email_data = {
+            "employee_name": submission.employee_name,
+            "employee_email": submission.employee_email,
+            "department": getattr(submission, 'department', 'General'),
+            "position": getattr(submission, 'position', 'Employee'),
+            "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
+            "submission_id": submission.id,
+            "final_notes": final_notes
+        }
+
+        # Send vendor notification email
+        email_message = EmailTemplates.vendor_offboarding_notification(email_data, vendor_email)
+        email_success = await email_service.send_email(email_message)
+
+        if not email_success:
+            logger.warning(f"Failed to send vendor email to {vendor_email} for submission {submission_id}")
+            # Continue anyway - we'll mark the email as sent even if delivery failed
+            # This allows HR to retry manually if needed
+
+        # Update submission status
+        submission.vendor_mail_sent = True
+        submission.resignation_status = ResignationStatus.OFFBOARDED.value
+
+        db.commit()
+        db.refresh(submission)
+
+        logger.info(f"✅ Offboarding finalized for submission {submission_id}, vendor email sent to {vendor_email}")
+
+        return {
+            "message": "Offboarding finalized successfully",
+            "submission_id": submission_id,
+            "employee_name": submission.employee_name,
+            "resignation_status": submission.resignation_status,
+            "vendor_email": vendor_email,
+            "vendor_mail_sent": submission.vendor_mail_sent,
+            "email_sent": email_success
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to finalize offboarding: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to finalize offboarding: {str(e)}")
 
 
 @router.get("/debug-submissions", tags=["debug"])
@@ -735,13 +1053,24 @@ async def _send_it_notification(db: Session, submission):
     """Send IT clearance notification when exit interview is done"""
     try:
         from app.services.email import get_email_service, EmailTemplates
+        from app.services.tokenized_forms import get_tokenized_form_service
+        from config import BASE_URL, settings
         import logging
 
         logger = logging.getLogger(__name__)
         email_service = get_email_service()
+        form_token_service = get_tokenized_form_service()
 
-        # Get IT email (could be configurable)
-        it_email = "it-support@company.com"  # Default, could be made configurable
+        # Generate IT clearance form token
+        it_clearance_token = form_token_service.generate_secure_token({
+            "form_type": "it_clearance",
+            "submission_id": submission.id,
+            "employee_name": submission.employee_name,
+            "created_for": "it_clearance"
+        })
+
+        # Create IT clearance form URL
+        clearance_form_url = f"{BASE_URL}/api/forms/complete-it-clearance?token={it_clearance_token}"
 
         # Get asset details
         from app.crud import get_asset_by_submission
@@ -757,7 +1086,7 @@ async def _send_it_notification(db: Session, submission):
             "submission_id": submission.id
         }
 
-        email_message = EmailTemplates.it_clearance_request(email_data)
+        email_message = EmailTemplates.it_clearance_request(email_data, clearance_form_url)
         success = await email_service.send_email(email_message)
 
         if success:

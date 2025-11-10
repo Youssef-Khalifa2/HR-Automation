@@ -1,0 +1,27 @@
+IT ASSET CLEARANCE REQUIRED
+==================================================
+
+Please complete the IT asset clearance process for the following employee:
+
+EMPLOYEE INFORMATION
+--------------------------------------------------
+
+Employee Name:      {{ employee_name }}
+Email:              {{ employee_email }}
+Department:         {{ department }}
+Position:           {{ position }}
+Last Working Day:   {{ last_working_day }}
+Submission ID:      #{{ submission_id }}
+
+--------------------------------------------------
+COMPLETE IT CLEARANCE
+--------------------------------------------------
+
+Click the link below to complete the IT clearance form:
+
+{{ clearance_form_url }}
+
+--------------------------------------------------
+
+This is an automated notification from the HR Automation System
+{{ current_date }}

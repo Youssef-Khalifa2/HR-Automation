@@ -59,13 +59,35 @@ def get_submissions(
     limit: int = 100,
     resignation_status: Optional[str] = None,
     date_from: Optional[datetime] = None,
-    date_to: Optional[datetime] = None
+    date_to: Optional[datetime] = None,
+    exit_interview_status: Optional[str] = None,
+    it_asset_cleared: Optional[bool] = None,
+    medical_card_collected: Optional[bool] = None,
+    vendor_mail_sent: Optional[bool] = None
 ) -> List[Submission]:
-    """Get filtered submissions"""
+    """Get filtered submissions with enhanced filtering options"""
     query = db.query(Submission)
 
     if resignation_status:
         query = query.filter(Submission.resignation_status == resignation_status)
+
+    if exit_interview_status:
+        query = query.filter(Submission.exit_interview_status == exit_interview_status)
+
+    # IT asset status filter
+    if it_asset_cleared is not None:
+        if it_asset_cleared:
+            query = query.filter(Submission.it_support_reply == True)
+        else:
+            query = query.filter(Submission.it_support_reply != True)
+
+    # Medical card status filter
+    if medical_card_collected is not None:
+        query = query.filter(Submission.medical_card_collected == medical_card_collected)
+
+    # Vendor mail status filter
+    if vendor_mail_sent is not None:
+        query = query.filter(Submission.vendor_mail_sent == vendor_mail_sent)
 
     # Note: department filtering removed as column doesn't exist in current DB
 
@@ -120,11 +142,19 @@ def update_submission(db: Session, submission_id: int, submission) -> Optional[S
 
 
 def delete_submission(db: Session, submission_id: int) -> bool:
-    """Delete submission"""
+    """Delete submission and all related records"""
     db_submission = get_submission(db, submission_id)
     if not db_submission:
         return False
 
+    # Delete related assets first (due to foreign key constraint)
+    db.query(Asset).filter(Asset.res_id == submission_id).delete()
+
+    # Delete related exit interviews
+    from app.models.exit_interview import ExitInterview
+    db.query(ExitInterview).filter(ExitInterview.submission_id == submission_id).delete()
+
+    # Now delete the submission
     db.delete(db_submission)
     db.commit()
     return True

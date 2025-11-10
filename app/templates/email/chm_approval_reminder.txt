@@ -1,0 +1,63 @@
+⏰ CHM APPROVAL REMINDER
+Final Approval Required for Resignation
+==================================================
+
+⚠️ ACTION REQUIRED
+
+A resignation request requires your final approval as Chinese Head.
+The request has been pending CHM approval for {{ hours_pending }} hours.
+
+--------------------------------------------------
+✓ TEAM LEADER APPROVED
+--------------------------------------------------
+
+The team leader has already approved this resignation. Your final
+approval is now needed to proceed with the offboarding process.
+
+{% if leader_notes %}
+Leader's Notes: {{ leader_notes }}
+{% endif %}
+
+--------------------------------------------------
+EMPLOYEE DETAILS
+--------------------------------------------------
+
+Employee Name:      {{ employee_name }}
+Email:              {{ employee_email }}
+Team Leader:        {{ team_leader }}
+Submission Date:    {{ submission_date }}
+Last Working Day:   {{ last_working_day }}
+Notice Period:      {{ notice_period_days }} days
+
+{% if is_urgent %}
+🚨 URGENT: This request requires immediate attention
+{% endif %}
+
+--------------------------------------------------
+WHAT YOU NEED TO DO
+--------------------------------------------------
+
+As Chinese Head, your approval is required to proceed with the
+offboarding workflow.
+
+APPROVAL LINK:
+{{ approval_url }}
+
+--------------------------------------------------
+NEXT STEPS
+--------------------------------------------------
+
+1. Click the link above to access the approval form
+2. Review the resignation details and team leader's decision
+3. Provide your final approval or rejection
+4. Add any notes or special instructions for HR
+
+NOTE: Once approved, the system will automatically initiate the
+exit interview and IT asset collection process.
+
+--------------------------------------------------
+
+This is an automated reminder from the HR Automation System.
+If you have already processed this request, please disregard this email.
+
+For assistance, please contact HR at {{ hr_email }}

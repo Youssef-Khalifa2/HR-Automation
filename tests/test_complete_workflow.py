@@ -250,12 +250,8 @@ class WorkflowTester:
             return False
 
         asset_data = {
-            "res_id": self.submission_id,
-            "laptop": True,
-            "mouse": True,
-            "headphones": True,
-            "others": "Monitor, USB-C cables, laptop charger",
-            "approved": False
+            "assets_returned": False,
+            "notes": "Laptop, mouse, headphones, monitor, USB-C cables need to be collected"
         }
 
         try:
@@ -269,11 +265,8 @@ class WorkflowTester:
                 self.asset_id = data['id']
                 print_success("Asset record created successfully")
                 print_info(f"Asset ID: {self.asset_id}")
-                print_info(f"Laptop: {'Yes' if data.get('laptop') else 'No'}")
-                print_info(f"Mouse: {'Yes' if data.get('mouse') else 'No'}")
-                print_info(f"Headphones: {'Yes' if data.get('headphones') else 'No'}")
-                print_info(f"Others: {data.get('others', 'None')}")
-                print_info(f"Approved: {'Yes' if data.get('approved') else 'No'}")
+                print_info(f"Assets Returned: {'Yes' if data.get('assets_returned') else 'No'}")
+                print_info(f"Notes: {data.get('notes', 'None')}")
 
                 return True
             else:
@@ -284,9 +277,9 @@ class WorkflowTester:
             print_error(f"Asset creation exception: {str(e)}")
             return False
 
-    def test_approve_asset(self):
-        """Test: Approve asset clearance"""
-        print_header("ASSET APPROVAL TEST")
+    def test_mark_asset_returned(self):
+        """Test: Mark assets as returned"""
+        print_header("MARK ASSET RETURNED TEST")
 
         if not self.asset_id:
             print_warning("Skipping: No asset ID available")
@@ -294,20 +287,20 @@ class WorkflowTester:
 
         try:
             response = self.session.post(
-                f"{BASE_URL}/api/assets/{self.asset_id}/approve"
+                f"{BASE_URL}/api/assets/{self.asset_id}/mark-returned"
             )
 
             if response.status_code == 200:
                 data = response.json()
-                print_success("Asset clearance approved successfully")
-                print_info(f"IT Approval Status: {data.get('it_approval_status', 'N/A')}")
+                print_success("Assets marked as returned successfully")
+                print_info(f"Message: {data.get('message', 'N/A')}")
                 return True
             else:
-                print_error(f"Asset approval failed: {response.status_code}")
+                print_error(f"Mark returned failed: {response.status_code}")
                 print_error(f"Response: {response.text}")
                 return False
         except Exception as e:
-            print_error(f"Asset approval exception: {str(e)}")
+            print_error(f"Mark returned exception: {str(e)}")
             return False
 
     def test_get_assets(self):
@@ -322,12 +315,9 @@ class WorkflowTester:
                 print_success(f"Retrieved {len(assets)} asset record(s)")
 
                 for asset in assets[:3]:  # Show first 3
-                    items = []
-                    if asset.get('laptop'): items.append('Laptop')
-                    if asset.get('mouse'): items.append('Mouse')
-                    if asset.get('headphones'): items.append('Headphones')
-                    status = 'Approved' if asset.get('approved') else 'Pending'
-                    print_info(f"  - Asset ID {asset['id']}: {', '.join(items)} ({status})")
+                    status = 'Returned' if asset.get('assets_returned') else 'Pending'
+                    notes = asset.get('notes', 'No notes')
+                    print_info(f"  - Asset ID {asset['id']}: {status} - {notes[:50]}")
 
                 return True
             else:
@@ -436,7 +426,7 @@ class WorkflowTester:
             ("Submit Interview Feedback", self.test_submit_interview_feedback),
             ("Create Asset Record", self.test_create_asset_record),
             ("Get Assets", self.test_get_assets),
-            ("Approve Asset", self.test_approve_asset),
+            ("Mark Asset Returned", self.test_mark_asset_returned),
             ("Resend Approval", self.test_resend_approval),
             ("Cleanup", self.cleanup),
         ]

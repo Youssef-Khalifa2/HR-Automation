@@ -1,0 +1,64 @@
+⏰ IT ASSET COLLECTION REMINDER
+Employee Asset Clearance Required
+==================================================
+
+⚠️ ACTION REQUIRED
+
+IT asset collection and clearance is pending for an exiting employee.
+This task has been pending for {{ hours_pending }} hours.
+
+--------------------------------------------------
+EMPLOYEE DETAILS
+--------------------------------------------------
+
+Employee Name:          {{ employee_name }}
+Email:                  {{ employee_email }}
+Last Working Day:       {{ last_working_day }}
+Days Until Last Day:    {{ days_remaining }} days
+
+{% if is_urgent %}
+🚨 URGENT: Last working day is approaching - please prioritize this task
+{% endif %}
+
+--------------------------------------------------
+📋 ASSETS TO COLLECT & VERIFY
+--------------------------------------------------
+
+☐ Laptop / Desktop Computer
+☐ Monitor(s) and peripherals
+☐ Mobile device(s) / Phone
+☐ Access cards / Security tokens
+☐ Software licenses
+☐ VPN credentials / Account access
+☐ Any other company-issued equipment
+
+--------------------------------------------------
+WHAT YOU NEED TO DO
+--------------------------------------------------
+
+Please coordinate with the employee to collect all IT assets and
+confirm clearance.
+
+CLEARANCE CONFIRMATION LINK:
+{{ clearance_url }}
+
+--------------------------------------------------
+NEXT STEPS
+--------------------------------------------------
+
+1. Contact the employee to schedule asset return
+2. Collect all company-issued IT equipment
+3. Verify all assets are in acceptable condition
+4. Revoke system access and credentials
+5. Click the link above to mark clearance as complete
+6. Add any notes about asset condition or issues
+
+IMPORTANT: Asset clearance must be completed before the employee's
+last working day to ensure smooth offboarding.
+
+--------------------------------------------------
+
+This is an automated reminder from the HR Automation System.
+If you have already processed this clearance, please disregard this email.
+
+For assistance, please contact HR at {{ hr_email }}

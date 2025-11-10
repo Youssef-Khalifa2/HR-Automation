@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: normal;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .employee-info {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .info-row {
+            margin: 10px 0;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #555;
+            display: inline-block;
+            width: 140px;
+        }
+        .info-value {
+            color: #333;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #2c3e50;
+            color: white;
+            padding: 14px 32px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #1a252f;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-size: 13px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>IT Asset Clearance Required</h1>
+        </div>
+
+        <div class="content">
+            <p style="font-size: 16px; margin-bottom: 20px;">
+                Please complete the IT asset clearance process for the following employee:
+            </p>
+
+            <div class="employee-info">
+                <div class="info-row">
+                    <span class="info-label">Employee Name:</span>
+                    <span class="info-value">{{ employee_name }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">{{ employee_email }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Department:</span>
+                    <span class="info-value">{{ department }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Position:</span>
+                    <span class="info-value">{{ position }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Working Day:</span>
+                    <span class="info-value">{{ last_working_day }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Submission ID:</span>
+                    <span class="info-value">#{{ submission_id }}</span>
+                </div>
+            </div>
+
+            <div class="button-container">
+                <a href="{{ clearance_form_url }}" class="button">Complete IT Clearance</a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated notification from the HR Automation System</p>
+            <p>{{ current_date }}</p>
+        </div>
+    </div>
+</body>
+</html>

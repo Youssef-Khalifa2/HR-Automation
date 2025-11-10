@@ -1,0 +1,49 @@
+EMPLOYEE OFFBOARDING COMPLETE
+All Clearances Confirmed
+
+✅ OFFBOARDING PROCESS COMPLETED
+The employee has completed all required clearance procedures
+
+EMPLOYEE INFORMATION
+--------------------
+Employee Name: {{ employee_name }}
+Employee Email: {{ employee_email }}
+Position: {{ position }}
+Department: {{ department }}
+Last Working Day: {{ last_working_day }}
+Submission ID: {{ submission_id }}
+
+COMPLETED CLEARANCES
+--------------------
+✓ Team Leader Approval - Confirmed
+✓ Chinese Head Approval - Confirmed
+✓ Exit Interview - Completed
+✓ IT Asset Collection - Verified
+✓ Medical Card Collection - Collected
+✓ HR Final Clearance - Approved
+
+{% if final_notes %}
+FINAL NOTES
+-----------
+{{ final_notes }}
+{% endif %}
+
+NEXT STEPS
+----------
+The employee offboarding process has been completed from our end. Please proceed with any vendor-specific procedures on your side:
+
+- Final payroll processing (if applicable)
+- Benefits termination
+- Access revocation to vendor systems
+- Any vendor-specific clearance requirements
+
+CONTACT INFORMATION
+-------------------
+If you have any questions or need additional information, please contact our HR Department.
+
+This notification confirms that all internal clearance procedures have been completed.
+
+---
+This is an automated notification from the HR Automation System
+Generated on {{ current_date }}
+Employee offboarding completed successfully

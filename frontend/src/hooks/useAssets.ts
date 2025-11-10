@@ -5,19 +5,19 @@ import type { Asset, AssetCreate, AssetUpdate } from '../lib/types';
 
 // Fetch all assets with optional filters
 export const useAssets = (filters?: {
-  pending?: boolean;
-  approved?: boolean;
+  returned?: boolean;
   submission_id?: number;
 }) => {
   return useQuery({
     queryKey: ['assets', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (filters?.pending !== undefined) params.append('pending', filters.pending.toString());
-      if (filters?.approved !== undefined) params.append('approved', filters.approved.toString());
+      if (filters?.returned !== undefined) params.append('returned', filters.returned.toString());
       if (filters?.submission_id) params.append('submission_id', filters.submission_id.toString());
 
-      const { data } = await api.get<Asset[]>(`/api/assets?${params.toString()}`);
+      const queryString = params.toString();
+      const url = queryString ? `/api/assets/?${queryString}` : '/api/assets/';
+      const { data } = await api.get<Asset[]>(url);
       return data;
     },
   });
@@ -55,23 +55,23 @@ export const useCreateOrUpdateAsset = () => {
   });
 };
 
-// Approve asset clearance
-export const useApproveAsset = () => {
+// Mark asset as returned
+export const useMarkAssetReturned = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (asset_id: number) => {
-      const { data } = await api.post(`/api/assets/${asset_id}/approve`);
+      const { data } = await api.post(`/api/assets/${asset_id}/mark-returned`);
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['submissions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Asset clearance approved');
+      toast.success('Assets marked as returned');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || 'Failed to approve asset');
+      toast.error(error.response?.data?.detail || 'Failed to mark assets as returned');
     },
   });
 };
@@ -82,17 +82,6 @@ export const useAssetStats = () => {
     queryKey: ['asset-stats'],
     queryFn: async () => {
       const { data } = await api.get('/api/assets/stats');
-      return data;
-    },
-  });
-};
-
-// Get pending asset approvals
-export const usePendingAssetApprovals = () => {
-  return useQuery({
-    queryKey: ['pending-asset-approvals'],
-    queryFn: async () => {
-      const { data } = await api.get<Asset[]>('/api/assets?pending=true');
       return data;
     },
   });

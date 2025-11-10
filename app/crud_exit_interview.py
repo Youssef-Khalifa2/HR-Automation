@@ -105,7 +105,7 @@ def get_interviews_needing_scheduling(db: Session) -> List[Submission]:
     """Get submissions that need exit interview scheduling"""
     return db.query(Submission).filter(
         and_(
-            Submission.resignation_status.in_(["leader_approved", "chm_approved"]),
+            Submission.resignation_status.in_(["leader_approved", "chm_approved", "chm_done", "exit_done"]),
             Submission.exit_interview_status == "not_scheduled"
         )
     ).all()
@@ -113,12 +113,15 @@ def get_interviews_needing_scheduling(db: Session) -> List[Submission]:
 
 def get_upcoming_interviews(db: Session, days_ahead: int = 7) -> List[ExitInterview]:
     """Get upcoming interviews in the next N days"""
-    now = datetime.utcnow()
+    from sqlalchemy import cast, Date
+
+    now = datetime.utcnow().date()  # Use date for comparison
     future_date = now + timedelta(days=days_ahead)
+
     return db.query(ExitInterview).filter(
         and_(
-            ExitInterview.scheduled_date >= now,
-            ExitInterview.scheduled_date <= future_date,
+            cast(ExitInterview.scheduled_date, Date) >= now,
+            cast(ExitInterview.scheduled_date, Date) <= future_date,
             ExitInterview.interview_completed == False
         )
     ).all()
@@ -170,34 +173,39 @@ def mark_reminder_sent(db: Session, reminder_id: int) -> ExitInterviewReminder:
 
 def get_interview_statistics(db: Session) -> dict:
     """Get exit interview statistics"""
-    total_submissions = db.query(Submission).filter(
-        Submission.resignation_status.in_(["leader_approved", "chm_approved", "exit_done"])
-    ).count()
+    # Total interviews (all submissions that have reached approval stage)
+    total_count = db.query(ExitInterview).count()
 
-    scheduled_count = db.query(ExitInterview).filter(
+    # Pending scheduling (submissions ready for interview but not yet scheduled)
+    to_schedule = db.query(Submission).filter(
         and_(
-            ExitInterview.scheduled_date.isnot(None),
-            ExitInterview.interview_completed == False
-        )
-    ).count()
-
-    completed_count = db.query(ExitInterview).filter(
-        ExitInterview.interview_completed == True
-    ).count()
-
-    pending_scheduling = db.query(Submission).filter(
-        and_(
-            Submission.resignation_status.in_(["leader_approved", "chm_approved"]),
+            Submission.resignation_status.in_(["leader_approved", "chm_approved", "chm_done", "exit_done"]),
             Submission.exit_interview_status == "not_scheduled"
         )
     ).count()
 
+    # Upcoming scheduled interviews
+    from sqlalchemy import cast, Date
+    now = datetime.utcnow().date()
+    upcoming = db.query(ExitInterview).filter(
+        and_(
+            ExitInterview.scheduled_date.isnot(None),
+            cast(ExitInterview.scheduled_date, Date) >= now,
+            ExitInterview.interview_completed == False
+        )
+    ).count()
+
+    # Completed interviews
+    completed = db.query(ExitInterview).filter(
+        ExitInterview.interview_completed == True
+    ).count()
+
     return {
-        "total_submissions": total_submissions,
-        "pending_scheduling": pending_scheduling,
-        "scheduled": scheduled_count,
-        "completed": completed_count,
-        "completion_rate": (completed_count / total_submissions * 100) if total_submissions > 0 else 0
+        "total": total_count,
+        "to_schedule": to_schedule,
+        "upcoming": upcoming,
+        "completed": completed,
+        "completion_rate": (completed / total_count * 100) if total_count > 0 else 0
     }
 
 

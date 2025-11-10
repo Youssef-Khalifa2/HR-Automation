@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Offboarding Complete</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .info-box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+            border-radius: 5px;
+        }
+        .success-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+        .icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .checklist {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .checklist ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .checklist li {
+            margin: 8px 0;
+        }
+        .check-icon {
+            color: #28a745;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="icon">✅</div>
+        <h1>Employee Offboarding Complete</h1>
+        <p>All Clearances Confirmed</p>
+    </div>
+
+    <div class="content">
+        <div class="success-box">
+            <h3 style="margin-top: 0;">🎉 Offboarding Process Completed</h3>
+            <p><strong>The employee has completed all required clearance procedures</strong></p>
+        </div>
+
+        <div class="info-box">
+            <h3>Employee Information</h3>
+            <p><strong>Employee Name:</strong> {{ employee_name }}</p>
+            <p><strong>Employee Email:</strong> {{ employee_email }}</p>
+            <p><strong>Position:</strong> {{ position }}</p>
+            <p><strong>Department:</strong> {{ department }}</p>
+            <p><strong>Last Working Day:</strong> {{ last_working_day }}</p>
+            <p><strong>Submission ID:</strong> {{ submission_id }}</p>
+        </div>
+
+        <div class="checklist">
+            <h3>✓ Completed Clearances</h3>
+            <ul>
+                <li><span class="check-icon">✓</span> Team Leader Approval - Confirmed</li>
+                <li><span class="check-icon">✓</span> Chinese Head Approval - Confirmed</li>
+                <li><span class="check-icon">✓</span> Exit Interview - Completed</li>
+                <li><span class="check-icon">✓</span> IT Asset Collection - Verified</li>
+                <li><span class="check-icon">✓</span> Medical Card Collection - Collected</li>
+                <li><span class="check-icon">✓</span> HR Final Clearance - Approved</li>
+            </ul>
+        </div>
+
+        {% if final_notes %}
+        <div class="info-box">
+            <h3>📝 Final Notes</h3>
+            <p>{{ final_notes }}</p>
+        </div>
+        {% endif %}
+
+        <div class="info-box">
+            <h3>Next Steps</h3>
+            <p>The employee offboarding process has been completed from our end. Please proceed with any vendor-specific procedures on your side.</p>
+            <ul>
+                <li>Final payroll processing (if applicable)</li>
+                <li>Benefits termination</li>
+                <li>Access revocation to vendor systems</li>
+                <li>Any vendor-specific clearance requirements</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>📞 Contact Information</h3>
+            <p>If you have any questions or need additional information, please contact:</p>
+            <p><strong>HR Department</strong></p>
+            <p>This notification confirms that all internal clearance procedures have been completed.</p>
+        </div>
+
+        <div class="footer">
+            <p><em>This is an automated notification from the HR Automation System</em></p>
+            <p>Generated on {{ current_date }}</p>
+            <p>Employee offboarding completed successfully</p>
+        </div>
+    </div>
+</body>
+</html>

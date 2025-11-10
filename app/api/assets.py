@@ -43,11 +43,8 @@ def create_or_update_asset(
         # Create new asset
         new_asset = Asset(
             res_id=submission_id,
-            laptop=asset_data.laptop,
-            mouse=asset_data.mouse,
-            headphones=asset_data.headphones,
-            others=asset_data.others,
-            approved=False
+            assets_returned=asset_data.assets_returned,
+            notes=asset_data.notes
         )
         db.add(new_asset)
         db.commit()
@@ -58,8 +55,7 @@ def create_or_update_asset(
 
 @router.get("/", response_model=List[AssetResponse])
 def list_assets(
-    pending: Optional[bool] = None,
-    approved: Optional[bool] = None,
+    returned: Optional[bool] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -68,10 +64,8 @@ def list_assets(
     """List assets with optional filters"""
     query = db.query(Asset)
 
-    if pending is not None:
-        query = query.filter(Asset.approved == (not pending))
-    elif approved is not None:
-        query = query.filter(Asset.approved == approved)
+    if returned is not None:
+        query = query.filter(Asset.assets_returned == returned)
 
     assets = query.offset(skip).limit(limit).all()
     return assets
@@ -90,18 +84,18 @@ def get_asset(
     return asset
 
 
-@router.post("/{asset_id}/approve")
-async def approve_asset(
+@router.post("/{asset_id}/mark-returned")
+async def mark_asset_returned(
     asset_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_hr_user)
 ):
-    """Approve asset clearance"""
+    """Mark assets as returned"""
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    asset.approved = True
+    asset.assets_returned = True
     db.commit()
     db.refresh(asset)
 
@@ -111,10 +105,10 @@ async def approve_asset(
         submission.resignation_status = "assets_recorded"
         db.commit()
 
-    logger.info(f"Asset {asset_id} approved for submission {asset.res_id}")
+    logger.info(f"Assets marked as returned for submission {asset.res_id}")
 
     return {
-        "message": "Asset approved successfully",
+        "message": "Assets marked as returned successfully",
         "asset_id": asset_id,
         "submission_id": asset.res_id
     }

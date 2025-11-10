@@ -520,7 +520,7 @@ async def send_hr_notification(submission, message_type: str):
             )
 
             # Create interview scheduling form URL
-            interview_url = f"{BASE_URL}/forms/schedule-interview?token={token}"
+            interview_url = f"{BASE_URL}/api/forms/schedule-interview?token={token}"
 
             # Prepare email data with interview scheduling form
             email_data = {

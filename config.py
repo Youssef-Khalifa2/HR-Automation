@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     # Email Recipients Configuration
     HR_EMAIL: str = "youssefkhalifa@51talk.com"  # HR department email for all notifications
     IT_EMAIL: str = "youssefkhalifa@51talk.com"  # IT department email for asset clearance
+    IT_SUPPORT_EMAIL: str = "youssefkhalifa@51talk.com"  # IT support email (alias for IT_EMAIL)
+
+    # Frontend Configuration
+    FRONTEND_URL: str = "http://localhost:5173"  # Frontend URL for approval links
+
+    # Reminder System Configuration
+    ENABLE_AUTO_REMINDERS: bool = True  # Enable/disable automated reminder system
+    REMINDER_THRESHOLD_HOURS: int = 24  # Hours before sending first reminder
+    REMINDER_CHECK_INTERVAL_MINUTES: int = 60  # How often to check for pending items (for cron)
 
     # IMAP Configuration (future use)
     IMAP_HOST: Optional[str] = None

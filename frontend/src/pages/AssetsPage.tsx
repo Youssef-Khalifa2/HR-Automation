@@ -2,15 +2,13 @@ import { useState } from 'react';
 import {
   useAssets,
   useCreateOrUpdateAsset,
-  useApproveAsset,
-  usePendingAssetApprovals,
+  useMarkAssetReturned,
 } from '../hooks/useAssets';
 import { useSubmissions } from '../hooks/useSubmissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -23,40 +21,43 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { formatDate } from '../lib/utils';
-import { Package, Plus, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Package, Plus, CheckCircle, Clock, RefreshCw } from 'lucide-react';
 import type { Asset, AssetCreate } from '../lib/types';
+import toast from 'react-hot-toast';
 
 export default function AssetsPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<number | null>(null);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'returned' | 'pending'>('all');
 
-  const { data: submissions } = useSubmissions({});
-  const { data: assets } = useAssets(
+  const { data: submissions, refetch: refetchSubmissions } = useSubmissions({});
+  const { data: assets, refetch: refetchAssets } = useAssets(
     filterStatus === 'all'
       ? {}
-      : filterStatus === 'pending'
-      ? { pending: true }
-      : { approved: true }
+      : filterStatus === 'returned'
+      ? { returned: true }
+      : { returned: false }
   );
-  const { data: pendingApprovals } = usePendingAssetApprovals();
+
+  const handleRefresh = async () => {
+    toast.promise(
+      Promise.all([
+        refetchSubmissions(),
+        refetchAssets()
+      ]),
+      {
+        loading: 'Refreshing assets...',
+        success: 'Assets refreshed successfully',
+        error: 'Failed to refresh assets'
+      }
+    );
+  };
 
   const createOrUpdateAsset = useCreateOrUpdateAsset();
-  const approveAsset = useApproveAsset();
+  const markAssetReturned = useMarkAssetReturned();
 
   const [assetForm, setAssetForm] = useState<AssetCreate>({
-    laptop_serial: '',
-    laptop_model: '',
-    mouse: false,
-    keyboard: false,
-    headphones: false,
-    monitor: false,
-    monitor_serial: '',
-    other_items: '',
-    collection_status: 'pending',
-    collected_date: null,
-    collected_by: '',
-    it_approval_status: 'pending',
+    assets_returned: false,
     notes: '',
   });
 
@@ -75,26 +76,15 @@ export default function AssetsPage() {
     );
   };
 
-  const handleApprove = (assetId: number) => {
-    if (confirm('Approve asset clearance?')) {
-      approveAsset.mutate(assetId);
+  const handleMarkReturned = (assetId: number) => {
+    if (confirm('Mark assets as returned?')) {
+      markAssetReturned.mutate(assetId);
     }
   };
 
   const resetForm = () => {
     setAssetForm({
-      laptop_serial: '',
-      laptop_model: '',
-      mouse: false,
-      keyboard: false,
-      headphones: false,
-      monitor: false,
-      monitor_serial: '',
-      other_items: '',
-      collection_status: 'pending',
-      collected_date: null,
-      collected_by: '',
-      it_approval_status: 'pending',
+      assets_returned: false,
       notes: '',
     });
   };
@@ -104,34 +94,16 @@ export default function AssetsPage() {
     setCreateModalOpen(true);
   };
 
-  const getCollectionStatusBadge = (status: string) => {
-    switch (status) {
-      case 'collected':
-        return <Badge className="bg-green-600">Collected</Badge>;
-      case 'pending':
-        return <Badge className="bg-orange-600">Pending</Badge>;
-      case 'partial':
-        return <Badge className="bg-blue-600">Partial</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
+  const getStatusBadge = (returned: boolean) => {
+    return returned ? (
+      <Badge className="bg-green-600">Returned</Badge>
+    ) : (
+      <Badge className="bg-orange-600">Pending</Badge>
+    );
   };
 
-  const getITApprovalBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-green-600">Approved</Badge>;
-      case 'pending':
-        return <Badge className="bg-orange-600">Pending</Badge>;
-      case 'rejected':
-        return <Badge className="bg-red-600">Rejected</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
-
-  const pendingCount = pendingApprovals?.length || 0;
-  const approvedCount = assets?.filter((a) => a.it_approval_status === 'approved').length || 0;
+  const pendingCount = assets?.filter((a) => !a.assets_returned).length || 0;
+  const returnedCount = assets?.filter((a) => a.assets_returned).length || 0;
   const totalAssets = assets?.length || 0;
 
   return (
@@ -139,12 +111,18 @@ export default function AssetsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Asset Management</h1>
-          <p className="text-muted-foreground">Track and manage company assets during offboarding</p>
+          <p className="text-muted-foreground">Track asset returns during offboarding</p>
         </div>
-        <Button onClick={() => setCreateModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Record Assets
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleRefresh} variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button onClick={() => setCreateModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Record Asset Status
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -160,7 +138,7 @@ export default function AssetsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Return</CardTitle>
             <Clock className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
@@ -169,47 +147,14 @@ export default function AssetsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CardTitle className="text-sm font-medium">Returned</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{approvedCount}</div>
+            <div className="text-2xl font-bold">{returnedCount}</div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Pending Approvals */}
-      {pendingApprovals && pendingApprovals.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-orange-600" />
-              Pending Asset Approvals
-            </CardTitle>
-            <CardDescription>Assets awaiting IT approval</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {pendingApprovals.map((asset) => (
-                <div key={asset.id} className="flex items-center justify-between border-b pb-2 last:border-0">
-                  <div>
-                    <p className="font-medium">{asset.submission?.employee_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Laptop: {asset.laptop_model} ({asset.laptop_serial})
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {getCollectionStatusBadge(asset.collection_status)}
-                    </p>
-                  </div>
-                  <Button size="sm" onClick={() => handleApprove(asset.id)}>
-                    Approve
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Asset List */}
       <Card>
@@ -223,7 +168,7 @@ export default function AssetsPage() {
               <SelectContent>
                 <SelectItem value="all">All Assets</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="returned">Returned</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -234,10 +179,9 @@ export default function AssetsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Employee</TableHead>
-                  <TableHead>Laptop</TableHead>
-                  <TableHead>Accessories</TableHead>
-                  <TableHead>Collection Status</TableHead>
-                  <TableHead>IT Approval</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead>Last Updated</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -246,30 +190,25 @@ export default function AssetsPage() {
                   <TableRow key={asset.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{asset.submission?.employee_name}</p>
-                        <p className="text-xs text-muted-foreground">{asset.submission?.employee_email}</p>
+                        <p className="font-medium">{asset.submission?.employee_name || 'N/A'}</p>
+                        <p className="text-xs text-muted-foreground">{asset.submission?.employee_email || 'N/A'}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(asset.assets_returned)}</TableCell>
+                    <TableCell>
+                      <div className="max-w-md">
+                        {asset.notes || <span className="text-muted-foreground">No notes</span>}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                        <p>{asset.laptop_model || 'N/A'}</p>
-                        <p className="text-xs text-muted-foreground">{asset.laptop_serial || 'N/A'}</p>
-                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {asset.updated_at ? formatDate(asset.updated_at) : 'N/A'}
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {asset.mouse && <Badge variant="outline">Mouse</Badge>}
-                        {asset.keyboard && <Badge variant="outline">Keyboard</Badge>}
-                        {asset.headphones && <Badge variant="outline">Headphones</Badge>}
-                        {asset.monitor && <Badge variant="outline">Monitor</Badge>}
-                      </div>
-                    </TableCell>
-                    <TableCell>{getCollectionStatusBadge(asset.collection_status)}</TableCell>
-                    <TableCell>{getITApprovalBadge(asset.it_approval_status)}</TableCell>
-                    <TableCell>
-                      {asset.it_approval_status === 'pending' && (
-                        <Button size="sm" variant="outline" onClick={() => handleApprove(asset.id)}>
-                          Approve
+                      {!asset.assets_returned && (
+                        <Button size="sm" variant="outline" onClick={() => handleMarkReturned(asset.id)}>
+                          Mark Returned
                         </Button>
                       )}
                     </TableCell>
@@ -287,10 +226,10 @@ export default function AssetsPage() {
 
       {/* Create/Edit Asset Modal */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Record Asset Information</DialogTitle>
-            <DialogDescription>Document all company assets for this employee</DialogDescription>
+            <DialogTitle>Record Asset Status</DialogTitle>
+            <DialogDescription>Track whether assets have been returned</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -314,130 +253,29 @@ export default function AssetsPage() {
               </Select>
             </div>
 
-            {/* Laptop Information */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="laptop_model">Laptop Model</Label>
-                <Input
-                  id="laptop_model"
-                  value={assetForm.laptop_model}
-                  onChange={(e) => setAssetForm({ ...assetForm, laptop_model: e.target.value })}
-                  placeholder="e.g., MacBook Pro 16-inch"
-                />
-              </div>
-              <div>
-                <Label htmlFor="laptop_serial">Serial Number</Label>
-                <Input
-                  id="laptop_serial"
-                  value={assetForm.laptop_serial}
-                  onChange={(e) => setAssetForm({ ...assetForm, laptop_serial: e.target.value })}
-                  placeholder="e.g., C02XYZ123456"
-                />
-              </div>
-            </div>
-
-            {/* Accessories */}
-            <div>
-              <Label>Accessories</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={assetForm.mouse}
-                    onChange={(e) => setAssetForm({ ...assetForm, mouse: e.target.checked })}
-                    className="rounded"
-                  />
-                  <span>Mouse</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={assetForm.keyboard}
-                    onChange={(e) => setAssetForm({ ...assetForm, keyboard: e.target.checked })}
-                    className="rounded"
-                  />
-                  <span>Keyboard</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={assetForm.headphones}
-                    onChange={(e) => setAssetForm({ ...assetForm, headphones: e.target.checked })}
-                    className="rounded"
-                  />
-                  <span>Headphones</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={assetForm.monitor}
-                    onChange={(e) => setAssetForm({ ...assetForm, monitor: e.target.checked })}
-                    className="rounded"
-                  />
-                  <span>Monitor</span>
-                </label>
-              </div>
-            </div>
-
-            {assetForm.monitor && (
-              <div>
-                <Label htmlFor="monitor_serial">Monitor Serial Number</Label>
-                <Input
-                  id="monitor_serial"
-                  value={assetForm.monitor_serial}
-                  onChange={(e) => setAssetForm({ ...assetForm, monitor_serial: e.target.value })}
-                  placeholder="Monitor serial number"
-                />
-              </div>
-            )}
-
-            <div>
-              <Label htmlFor="other_items">Other Items</Label>
-              <Input
-                id="other_items"
-                value={assetForm.other_items}
-                onChange={(e) => setAssetForm({ ...assetForm, other_items: e.target.value })}
-                placeholder="Cables, adapters, etc."
+            {/* Assets Returned Checkbox */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="assets_returned"
+                checked={assetForm.assets_returned}
+                onChange={(e) => setAssetForm({ ...assetForm, assets_returned: e.target.checked })}
+                className="rounded"
               />
+              <Label htmlFor="assets_returned" className="cursor-pointer">
+                Assets Returned
+              </Label>
             </div>
 
-            {/* Collection Information */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="collection_status">Collection Status</Label>
-                <Select
-                  value={assetForm.collection_status}
-                  onValueChange={(value: any) => setAssetForm({ ...assetForm, collection_status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="partial">Partial</SelectItem>
-                    <SelectItem value="collected">Collected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="collected_by">Collected By</Label>
-                <Input
-                  id="collected_by"
-                  value={assetForm.collected_by}
-                  onChange={(e) => setAssetForm({ ...assetForm, collected_by: e.target.value })}
-                  placeholder="IT staff name"
-                />
-              </div>
-            </div>
-
+            {/* Notes */}
             <div>
               <Label htmlFor="notes">Notes</Label>
               <Textarea
                 id="notes"
                 value={assetForm.notes}
                 onChange={(e) => setAssetForm({ ...assetForm, notes: e.target.value })}
-                placeholder="Additional notes or observations"
-                rows={3}
+                placeholder="Add any notes about the assets (optional)"
+                rows={4}
               />
             </div>
           </div>

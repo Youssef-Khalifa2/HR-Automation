@@ -1,0 +1,63 @@
+✅ CHM APPROVED - ACTION REQUIRED
+Exit Interview Scheduling Needed
+==================================================
+
+RESIGNATION FULLY APPROVED
+
+{{ employee_name }} has received final approval from the Chinese Head Manager.
+Please schedule an exit interview to proceed with the offboarding process.
+
+--------------------------------------------------
+EMPLOYEE DETAILS
+--------------------------------------------------
+
+Employee Name:      {{ employee_name }}
+Email:              {{ employee_email }}
+Submission ID:      #{{ submission_id }}
+Submission Date:    {{ submission_date }}
+Last Working Day:   {{ last_working_day }}
+
+{% if leader_notes %}
+--------------------------------------------------
+TEAM LEADER NOTES:
+--------------------------------------------------
+
+{{ leader_notes }}
+{% endif %}
+
+{% if chinese_head_notes %}
+--------------------------------------------------
+CHINESE HEAD NOTES:
+--------------------------------------------------
+
+{{ chinese_head_notes }}
+{% endif %}
+
+--------------------------------------------------
+NEXT STEPS
+--------------------------------------------------
+
+To schedule the exit interview, please use the link below:
+
+INTERVIEW SCHEDULING FORM:
+{{ interview_scheduling_url }}
+
+--------------------------------------------------
+WHAT YOU NEED TO DO
+--------------------------------------------------
+
+1. Click the link above to access the interview scheduling form
+2. Select an appropriate date and time for the exit interview
+3. Specify the location (office or video call)
+4. Assign an interviewer from the HR team
+5. Submit the form to send interview invitation to the employee
+
+IMPORTANT: The exit interview should be scheduled before the employee's
+last working day to gather valuable feedback.
+
+--------------------------------------------------
+
+This is an automated notification from the HR Automation System.
+If you have any questions, please contact the HR team.
+
+Date: {{ current_date }}

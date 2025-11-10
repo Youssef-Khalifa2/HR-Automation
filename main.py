@@ -10,7 +10,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.database import engine, Base
-from app.api import auth, submissions, users, public, approvals, mapping, forms, assets
+from app.api import auth, submissions, users, public, approvals, mapping, forms, assets, reminders, email_monitoring
 from app.schemas_all import *  # Import all schemas from consolidated file
 # Import all models to ensure they are registered with SQLAlchemy
 from app.models import user, submission, asset, exit_interview
@@ -50,9 +50,9 @@ async def lifespan(app: FastAPI):
     try:
         approval_token_service = ApprovalTokenService(SIGNING_SECRET)
         token_time = time.time() - token_start
-        print(f"[STARTUP] ✅ Approval token service initialized in {token_time:.3f}s")
+        print(f"[STARTUP] [OK] Approval token service initialized in {token_time:.3f}s")
     except Exception as e:
-        print(f"[STARTUP] ❌ Failed to initialize approval token service: {e}")
+        print(f"[STARTUP] [ERROR] Failed to initialize approval token service: {e}")
         raise
 
     # Initialize email service
@@ -61,16 +61,16 @@ async def lifespan(app: FastAPI):
         print("[STARTUP] Initializing email service...")
         email_service = create_email_service()
         email_time = time.time() - email_start
-        print(f"[STARTUP] ✅ Email service initialized in {email_time:.3f}s")
+        print(f"[STARTUP] [OK] Email service initialized in {email_time:.3f}s")
     except Exception as e:
         email_time = time.time() - email_start
-        print(f"[STARTUP] ❌ Email service initialization failed after {email_time:.3f}s: {e}")
+        print(f"[STARTUP] [ERROR] Email service initialization failed after {email_time:.3f}s: {e}")
         print("[STARTUP] Email functionality will be limited until properly configured")
         import traceback
         traceback.print_exc()
 
     startup_total = time.time() - startup_start
-    print(f"[STARTUP] ✅ HR Co-Pilot startup complete in {startup_total:.3f}s")
+    print(f"[STARTUP] [OK] HR Co-Pilot startup complete in {startup_total:.3f}s")
     print("[STARTUP] Server ready to handle requests")
 
     yield
@@ -119,6 +119,8 @@ app.include_router(public.router)  # Public routes (no auth required)
 app.include_router(approvals.router)  # Approval workflow routes
 app.include_router(mapping.router)  # Leader mapping routes
 app.include_router(forms.router)  # Tokenized email forms routes
+app.include_router(reminders.router)  # Reminder automation routes
+app.include_router(email_monitoring.router, prefix="/api/email-monitoring", tags=["Email Monitoring"])  # Email delivery tracking
 
 
 # React SPA routes - commented out old Jinja2 template routes

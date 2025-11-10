@@ -6,19 +6,44 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { formatDate, getStatusBadgeVariant, getExitInterviewStatusBadgeVariant } from '../lib/utils';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, RefreshCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
-  const { data: stats, isLoading: statsLoading } = useDashboardStats();
-  const { data: recentSubmissions, isLoading: submissionsLoading } = useRecentSubmissions(10);
-  const { data: upcomingInterviews, isLoading: interviewsLoading } = useUpcomingInterviews(7);
-  const { data: pendingFeedback, isLoading: feedbackLoading } = usePendingFeedback();
+  const queryClient = useQueryClient();
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
+  const { data: recentSubmissions, isLoading: submissionsLoading, refetch: refetchSubmissions } = useRecentSubmissions(10);
+  const { data: upcomingInterviews, isLoading: interviewsLoading, refetch: refetchInterviews } = useUpcomingInterviews(7);
+  const { data: pendingFeedback, isLoading: feedbackLoading, refetch: refetchFeedback } = usePendingFeedback();
+
+  const handleRefresh = async () => {
+    toast.promise(
+      Promise.all([
+        refetchStats(),
+        refetchSubmissions(),
+        refetchInterviews(),
+        refetchFeedback()
+      ]),
+      {
+        loading: 'Refreshing dashboard...',
+        success: 'Dashboard refreshed successfully',
+        error: 'Failed to refresh dashboard'
+      }
+    );
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of employee offboarding activities</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">Overview of employee offboarding activities</p>
+        </div>
+        <Button onClick={handleRefresh} variant="outline" size="sm">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -72,9 +97,9 @@ export default function DashboardPage() {
             ) : pendingFeedback && pendingFeedback.length > 0 ? (
               <div className="space-y-3">
                 {pendingFeedback.map((interview) => (
-                  <div key={interview.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                  <div key={interview.interview_id} className="flex items-center justify-between border-b pb-2 last:border-0">
                     <div>
-                      <p className="font-medium">{interview.submission?.employee_name}</p>
+                      <p className="font-medium">{interview.employee_name}</p>
                       <p className="text-sm text-muted-foreground">
                         Interviewed on {formatDate(interview.scheduled_date)}
                       </p>

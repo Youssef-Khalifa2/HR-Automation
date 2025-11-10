@@ -378,7 +378,7 @@
         };
 
         try {
-            const result = await apiCall('POST', '/submissions/exit-interviews/schedule', scheduleData);
+            const result = await apiCall('POST', '/submissions/exit-interviews/schedule/', scheduleData);
 
             // Close modal
             bootstrap.Modal.getInstance(document.getElementById('scheduleInterviewModal')).hide();

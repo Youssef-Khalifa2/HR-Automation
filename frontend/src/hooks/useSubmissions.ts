@@ -95,3 +95,43 @@ export const useResendApproval = () => {
     },
   });
 };
+
+export const useToggleMedicalCard = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post(`/api/submissions/${id}/medical-card/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['submission'] });
+      toast.success('Medical card marked as collected');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to mark medical card as collected');
+    },
+  });
+};
+
+export const useFinalizeOffboarding = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, finalNotes }: { id: number; finalNotes?: string }) => {
+      const { data } = await api.post(`/api/submissions/${id}/finalize/`, {
+        final_notes: finalNotes || ''
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['submission'] });
+      toast.success('Offboarding finalized successfully - vendor notified');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to finalize offboarding');
+    },
+  });
+};

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #3b82f6;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f9fafb;
+            padding: 30px;
+            border-radius: 0 0 5px 5px;
+        }
+        .reminder-box {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .reminder-box h3 {
+            margin-top: 0;
+            color: #92400e;
+        }
+        .employee-info {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #6b7280;
+        }
+        .info-value {
+            color: #1f2937;
+        }
+        .checklist {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .checklist h3 {
+            margin-top: 0;
+            color: #1f2937;
+        }
+        .checklist ul {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+        .check-icon {
+            color: #10b981;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #3b82f6;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .cta-button:hover {
+            background-color: #2563eb;
+        }
+        .urgency-indicator {
+            background-color: #fee2e2;
+            border: 1px solid #fca5a5;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin: 15px 0;
+            color: #991b1b;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⏰ IT Asset Collection Reminder</h1>
+        <p>Employee Asset Clearance Required</p>
+    </div>
+
+    <div class="content">
+        <div class="reminder-box">
+            <h3>⚠️ Action Required</h3>
+            <p><strong>IT asset collection and clearance is pending for an exiting employee.</strong></p>
+            <p>This task has been pending for <strong>{{ hours_pending }} hours</strong>.</p>
+        </div>
+
+        <h2>Employee Details</h2>
+        <div class="employee-info">
+            <div class="info-row">
+                <span class="info-label">Employee Name:</span>
+                <span class="info-value">{{ employee_name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email:</span>
+                <span class="info-value">{{ employee_email }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Last Working Day:</span>
+                <span class="info-value">{{ last_working_day }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Days Until Last Day:</span>
+                <span class="info-value">{{ days_remaining }} days</span>
+            </div>
+        </div>
+
+        {% if is_urgent %}
+        <div class="urgency-indicator">
+            🚨 URGENT: Last working day is approaching - please prioritize this task
+        </div>
+        {% endif %}
+
+        <div class="checklist">
+            <h3>📋 Assets to Collect & Verify</h3>
+            <ul>
+                <li><span class="check-icon">☐</span> Laptop / Desktop Computer</li>
+                <li><span class="check-icon">☐</span> Monitor(s) and peripherals</li>
+                <li><span class="check-icon">☐</span> Mobile device(s) / Phone</li>
+                <li><span class="check-icon">☐</span> Access cards / Security tokens</li>
+                <li><span class="check-icon">☐</span> Software licenses</li>
+                <li><span class="check-icon">☐</span> VPN credentials / Account access</li>
+                <li><span class="check-icon">☐</span> Any other company-issued equipment</li>
+            </ul>
+        </div>
+
+        <h3>What You Need To Do</h3>
+        <p>Please coordinate with the employee to collect all IT assets and confirm clearance:</p>
+
+        <div style="text-align: center;">
+            <a href="{{ clearance_url }}" class="cta-button">Confirm Asset Collection</a>
+        </div>
+
+        <h3>Next Steps</h3>
+        <ul>
+            <li>Contact the employee to schedule asset return</li>
+            <li>Collect all company-issued IT equipment</li>
+            <li>Verify all assets are in acceptable condition</li>
+            <li>Revoke system access and credentials</li>
+            <li>Click the link above to mark clearance as complete</li>
+            <li>Add any notes about asset condition or issues</li>
+        </ul>
+
+        <p><strong>Important:</strong> Asset clearance must be completed before the employee's last working day to ensure smooth offboarding.</p>
+
+        <div class="footer">
+            <p>This is an automated reminder from the HR Automation System.</p>
+            <p>If you have already processed this clearance, please disregard this email.</p>
+            <p>For assistance, please contact HR at {{ hr_email }}</p>
+        </div>
+    </div>
+</body>
+</html>

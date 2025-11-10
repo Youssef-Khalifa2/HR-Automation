@@ -166,6 +166,19 @@ class ExitInterviewAutomation:
     async def _send_hr_scheduling_reminder(self, db: Session, submission, hr_email: str, hr_name: str, days_overdue: int):
         """Send HR reminder for pending interview scheduling"""
         try:
+            # Generate skip interview token
+            from app.services.tokenized_forms import get_tokenized_form_service
+            from config import settings
+
+            tokenized_service = get_tokenized_form_service()
+            skip_token = tokenized_service.create_skip_interview_token(
+                submission_id=submission.id,
+                employee_email=submission.employee_email,
+                reason="HR opted to skip exit interview"
+            )
+
+            skip_url = f"{settings.BASE_URL}/api/forms/skip-interview?token={skip_token}" if skip_token else None
+
             email_data = {
                 "employee_name": submission.employee_name,
                 "employee_email": submission.employee_email,
@@ -174,7 +187,8 @@ class ExitInterviewAutomation:
                 "submission_id": submission.id,
                 "approval_date": submission.updated_at.strftime("%Y-%m-%d") if submission.updated_at else "",
                 "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
-                "current_date": datetime.now().strftime("%B %d, %Y")
+                "current_date": datetime.now().strftime("%B %d, %Y"),
+                "skip_url": skip_url
             }
 
             email_message = EmailTemplates.hr_schedule_interview_reminder(email_data)

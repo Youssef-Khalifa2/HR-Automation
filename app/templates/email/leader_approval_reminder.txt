@@ -1,0 +1,50 @@
+⏰ PENDING APPROVAL REMINDER
+Resignation Request Awaiting Your Review
+==================================================
+
+⚠️ ACTION REQUIRED
+
+This is a reminder that a resignation request requires your approval.
+The request has been pending for {{ hours_pending }} hours.
+
+--------------------------------------------------
+EMPLOYEE DETAILS
+--------------------------------------------------
+
+Employee Name:      {{ employee_name }}
+Email:              {{ employee_email }}
+Submission Date:    {{ submission_date }}
+Last Working Day:   {{ last_working_day }}
+Notice Period:      {{ notice_period_days }} days
+
+{% if is_urgent %}
+🚨 URGENT: This request requires immediate attention
+{% endif %}
+
+--------------------------------------------------
+WHAT YOU NEED TO DO
+--------------------------------------------------
+
+Please review the resignation request and provide your approval or rejection.
+
+APPROVAL LINK:
+{{ approval_url }}
+
+--------------------------------------------------
+NEXT STEPS
+--------------------------------------------------
+
+1. Click the link above to access the approval form
+2. Review the employee's resignation details
+3. Provide your decision (approve or reject)
+4. Add any notes or comments for HR
+
+IMPORTANT: Timely approval helps ensure smooth offboarding processes
+and maintains good employee relations.
+
+--------------------------------------------------
+
+This is an automated reminder from the HR Automation System.
+If you have already processed this request, please disregard this email.
+
+For assistance, please contact HR at {{ hr_email }}

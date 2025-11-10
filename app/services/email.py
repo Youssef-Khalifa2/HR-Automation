@@ -10,6 +10,7 @@ import asyncio
 import time
 import logging
 from dataclasses import dataclass
+from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -53,6 +54,68 @@ class EmailService:
             autoescape=True
         )
         print(f"[EMAIL] Email service initialized with timeout={config.connect_timeout}s")
+
+    def _create_email_log(self, message: EmailMessage, db: Session) -> int:
+        """Create email log entry in database before sending"""
+        try:
+            from app.models.email_log import EmailLog
+            from datetime import datetime
+
+            email_log = EmailLog(
+                to_email=message.to_email,
+                to_name=message.to_name,
+                from_email=self.config.from_email,
+                subject=message.subject,
+                template_name=message.template_name,
+                status='pending',
+                attempts=1,
+                created_at=datetime.utcnow(),
+                last_attempt_at=datetime.utcnow(),
+                template_data=message.template_data
+            )
+
+            db.add(email_log)
+            db.commit()
+            db.refresh(email_log)
+
+            return email_log.id
+        except Exception as e:
+            print(f"[WARN] Failed to create email log: {e}")
+            db.rollback()
+            return None
+
+    def _update_email_log_success(self, log_id: int, db: Session, smtp_response: str = None):
+        """Update email log with success status"""
+        try:
+            from app.models.email_log import EmailLog
+            from datetime import datetime
+
+            email_log = db.query(EmailLog).filter(EmailLog.id == log_id).first()
+            if email_log:
+                email_log.status = 'sent'
+                email_log.sent_at = datetime.utcnow()
+                email_log.smtp_response = smtp_response
+                db.commit()
+        except Exception as e:
+            print(f"[WARN] Failed to update email log {log_id}: {e}")
+            db.rollback()
+
+    def _update_email_log_failure(self, log_id: int, db: Session, error_message: str, error_type: str = None):
+        """Update email log with failure status"""
+        try:
+            from app.models.email_log import EmailLog
+            from datetime import datetime
+
+            email_log = db.query(EmailLog).filter(EmailLog.id == log_id).first()
+            if email_log:
+                email_log.status = 'failed'
+                email_log.failed_at = datetime.utcnow()
+                email_log.error_message = error_message
+                email_log.error_type = error_type or 'unknown'
+                db.commit()
+        except Exception as e:
+            print(f"[WARN] Failed to update email log {log_id}: {e}")
+            db.rollback()
 
     async def _get_connection(self):
         """Get SMTP connection with connection pooling"""
@@ -101,7 +164,16 @@ class EmailService:
             True if sent successfully, False otherwise
         """
         send_start = time.time()
+
+        # Create database session for logging
+        from app.database import SessionLocal
+        db = SessionLocal()
+        email_log_id = None
+
         try:
+            # Create email log entry before sending
+            email_log_id = self._create_email_log(message, db)
+
             print(f"[EMAIL] Sending email to {message.to_email}: {message.subject}")
 
             # Render email template
@@ -130,30 +202,69 @@ class EmailService:
             # Get connection and send
             smtp_start = time.time()
             smtp = await self._get_connection()
-            await smtp.send_message(email_msg)
+
+            # Ensure connection is active before sending
+            if not smtp.is_connected:
+                print("[EMAIL] Connection not active, reconnecting...")
+                await smtp.connect()
+                await smtp.login(self.config.username, self.config.password)
+
+            response = await smtp.send_message(email_msg)
             smtp_time = time.time() - smtp_start
             print(f"[EMAIL] SMTP send took {smtp_time:.3f}s")
+
+            # Update email log with success
+            if email_log_id:
+                self._update_email_log_success(email_log_id, db, smtp_response=str(response))
 
             total_time = time.time() - send_start
             import logging
             logger = logging.getLogger(__name__)
-            logger.info(f"[SUCCESS] Email sent to {message.to_email} in {total_time:.3f}s")
+            logger.info(f"[SUCCESS] Email sent to {message.to_email} in {total_time:.3f}s (log_id={email_log_id})")
             return True
 
         except asyncio.TimeoutError as e:
             total_time = time.time() - send_start
+            error_msg = f"Email send timeout after {total_time:.3f}s: {str(e)}"
+
+            # Update email log with failure
+            if email_log_id:
+                self._update_email_log_failure(email_log_id, db, error_msg, 'timeout')
+
             import logging
             logger = logging.getLogger(__name__)
-            logger.error(f"[ERROR] Email send timeout after {total_time:.3f}s to {message.to_email}: {str(e)}")
+            logger.error(f"[ERROR] {error_msg} to {message.to_email}")
             return False
+
         except Exception as e:
             total_time = time.time() - send_start
+            error_msg = f"Failed to send email after {total_time:.3f}s: {str(e)}"
+
+            # Classify error type
+            error_type = 'unknown'
+            if 'authentication' in str(e).lower() or 'auth' in str(e).lower():
+                error_type = 'auth_error'
+            elif 'refused' in str(e).lower() or 'rejected' in str(e).lower():
+                error_type = 'recipient_refused'
+            elif 'timeout' in str(e).lower():
+                error_type = 'timeout'
+            elif 'connection' in str(e).lower():
+                error_type = 'connection_error'
+
+            # Update email log with failure
+            if email_log_id:
+                self._update_email_log_failure(email_log_id, db, error_msg, error_type)
+
             import logging
             logger = logging.getLogger(__name__)
-            logger.error(f"[ERROR] Failed to send email to {message.to_email} after {total_time:.3f}s: {str(e)}")
+            logger.error(f"[ERROR] {error_msg} to {message.to_email}")
             import traceback
             logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
+
+        finally:
+            # Always close database session
+            db.close()
 
     async def send_bulk_emails(self, messages: List[EmailMessage]) -> Dict[str, int]:
         """
@@ -353,7 +464,8 @@ class EmailTemplates:
                 "submission_id": submission_data.get("submission_id", ""),
                 "approval_date": submission_data.get("approval_date", ""),
                 "last_working_day": submission_data.get("last_working_day", ""),
-                "current_date": datetime.now().strftime("%B %d, %Y")
+                "current_date": datetime.now().strftime("%B %d, %Y"),
+                "skip_url": submission_data.get("skip_url", None)
             }
         )
 
@@ -383,7 +495,7 @@ class EmailTemplates:
         )
 
     @staticmethod
-    def it_clearance_request(submission_data: Dict[str, Any]) -> EmailMessage:
+    def it_clearance_request(submission_data: Dict[str, Any], clearance_form_url: str = "") -> EmailMessage:
         """Create IT clearance request notification"""
         # Import from unified config
         from config import settings
@@ -399,8 +511,28 @@ class EmailTemplates:
                 "department": submission_data.get("department", "General"),
                 "position": submission_data.get("position", "Employee"),
                 "last_working_day": submission_data.get("last_working_day", ""),
-                "assets": submission_data.get("assets", {}),
                 "submission_id": submission_data.get("submission_id", ""),
+                "clearance_form_url": clearance_form_url,
+                "current_date": datetime.now().strftime("%B %d, %Y")
+            }
+        )
+
+    @staticmethod
+    def vendor_offboarding_notification(submission_data: Dict[str, Any], vendor_email: str) -> EmailMessage:
+        """Create vendor notification for completed offboarding"""
+        return EmailMessage(
+            to_email=vendor_email,
+            to_name="Vendor HR Team",
+            subject=f"Employee Offboarding Complete - {submission_data['employee_name']}",
+            template_name="vendor_notification",
+            template_data={
+                "employee_name": submission_data["employee_name"],
+                "employee_email": submission_data["employee_email"],
+                "department": submission_data.get("department", "General"),
+                "position": submission_data.get("position", "Employee"),
+                "last_working_day": submission_data.get("last_working_day", ""),
+                "submission_id": submission_data.get("submission_id", ""),
+                "final_notes": submission_data.get("final_notes", ""),
                 "current_date": datetime.now().strftime("%B %d, %Y")
             }
         )

@@ -10,14 +10,9 @@ class Asset(Base):
     id = Column(Integer, primary_key=True, index=True)
     res_id = Column(Integer, ForeignKey("submissions.id"), unique=True, nullable=False)  # Database column name
 
-    # Asset Items
-    laptop = Column(Boolean, default=False)
-    mouse = Column(Boolean, default=False)
-    headphones = Column(Boolean, default=False)
-    others = Column(Text, nullable=True)
-
-    # Overall Approval
-    approved = Column(Boolean, default=False)
+    # Simple asset tracking
+    assets_returned = Column(Boolean, default=False)  # Yes/No - were assets returned?
+    notes = Column(Text, nullable=True)  # Side notes about assets
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
