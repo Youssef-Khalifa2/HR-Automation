@@ -1,0 +1,46 @@
+ACTION REQUIRED: SUBMIT INTERVIEW FEEDBACK
+
+{% if days_overdue > 0 %}
+OVERDUE: This interview was {{ days_overdue }} day{% if days_overdue > 1 %}s{% endif %} ago
+{% endif %}
+
+Interview Feedback Submission Required
+Please submit feedback for the completed exit interview
+
+INTERVIEW DETAILS
+Employee Name: {{ employee_name }}
+Employee Email: {{ employee_email }}
+Position: {{ position }}
+Department: {{ department }}
+Interview Date: {{ interview_date }}
+Interview Time: {{ interview_time }}
+Location: {{ location }}
+Interview ID: {{ interview_id }}
+
+REQUIRED ACTION
+Please submit interview feedback in the HR Dashboard
+
+Use the "Submit Feedback" feature to record:
+- Interview notes and observations
+- Employee feedback summary
+- Rating/score (1-5 scale)
+- HR recommendations
+- Follow-up actions needed
+
+WHY THIS MATTERS
+Submitting interview feedback is crucial for:
+- Complete employee record keeping
+- Workplace improvement initiatives
+- Pattern identification and analysis
+- Policy and procedure updates
+
+IMPORTANT NOTE
+IT clearance cannot be triggered until interview feedback is submitted.
+The employee's offboarding process will be delayed until this step is completed.
+
+Please submit the interview feedback promptly to ensure the employee's offboarding process continues smoothly.
+
+---
+This is an automated reminder from the HR Automation System
+Access the HR Dashboard to submit interview feedback
+Sent on {{ current_date }}

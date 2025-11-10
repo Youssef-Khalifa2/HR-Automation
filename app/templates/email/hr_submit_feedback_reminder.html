@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Interview Feedback Reminder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .alert-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .info-box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #fd79a8;
+            border-radius: 5px;
+        }
+        .action-box {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+        .alert-icon {
+            font-size: 48px;
+            color: #fd79a8;
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #fd79a8;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .overdue {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="alert-icon">📝</div>
+        <h1>Action Required</h1>
+        <p>Submit Interview Feedback</p>
+    </div>
+
+    <div class="content">
+        {% if days_overdue > 0 %}
+        <div class="overdue">
+            OVERDUE: This interview was {{ days_overdue }} day{% if days_overdue > 1 %}s{% endif %} ago
+        </div>
+        {% endif %}
+
+        <div class="alert-box">
+            <h3>Interview Feedback Submission Required</h3>
+            <p>Please submit feedback for the completed exit interview</p>
+        </div>
+
+        <div class="info-box">
+            <h3>Interview Details</h3>
+            <p><strong>Employee Name:</strong> {{ employee_name }}</p>
+            <p><strong>Employee Email:</strong> {{ employee_email }}</p>
+            <p><strong>Position:</strong> {{ position }}</p>
+            <p><strong>Department:</strong> {{ department }}</p>
+            <p><strong>Interview Date:</strong> {{ interview_date }}</p>
+            <p><strong>Interview Time:</strong> {{ interview_time }}</p>
+            <p><strong>Location:</strong> {{ location }}</p>
+            <p><strong>Interview ID:</strong> {{ interview_id }}</p>
+        </div>
+
+        <div class="action-box">
+            <h3>Required Action</h3>
+            <p><strong>Please submit interview feedback in the HR Dashboard</strong></p>
+            <p>Use the "Submit Feedback" feature to record:</p>
+            <ul>
+                <li>Interview notes and observations</li>
+                <li>Employee feedback summary</li>
+                <li>Rating/score (1-5 scale)</li>
+                <li>HR recommendations</li>
+                <li>Follow-up actions needed</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Why This Matters</h3>
+            <p>Submitting interview feedback is crucial for:</p>
+            <ul>
+                <li>Complete employee record keeping</li>
+                <li>Workplace improvement initiatives</li>
+                <li>Pattern identification and analysis</li>
+                <li>Policy and procedure updates</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Important Note</h3>
+            <p><strong>IT clearance cannot be triggered until interview feedback is submitted.</strong></p>
+            <p>The employee's offboarding process will be delayed until this step is completed.</p>
+        </div>
+
+        <p>Please submit the interview feedback promptly to ensure the employee's offboarding process continues smoothly.</p>
+
+        <div class="footer">
+            <p><em>This is an automated reminder from the HR Automation System</em></p>
+            <p>Access the HR Dashboard to submit interview feedback</p>
+            <p>Sent on {{ current_date }}</p>
+        </div>
+    </div>
+</body>
+</html>

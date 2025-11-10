@@ -1,0 +1,41 @@
+ACTION REQUIRED: SCHEDULE EXIT INTERVIEW
+
+Exit Interview Scheduling Required
+Please schedule an exit interview for the following employee
+
+EMPLOYEE INFORMATION
+Employee Name: {{ employee_name }}
+Employee Email: {{ employee_email }}
+Position: {{ position }}
+Department: {{ department }}
+Last Working Day: {{ last_working_day }}
+Submission ID: {{ submission_id }}
+
+REQUIRED ACTION
+Please schedule the exit interview in the HR Dashboard
+
+Use the "Schedule Interview" feature in the dashboard to:
+- Set interview date and time
+- Specify interview location
+- Assign interviewer
+- Send automatic invitation to employee
+
+WHY THIS MATTERS
+Exit interviews are crucial for:
+- Understanding employee experience
+- Identifying areas for improvement
+- Retaining valuable feedback
+- Workplace culture enhancement
+
+BEST PRACTICES
+- Schedule the interview at least 2-3 days before last working day
+- Allow 30-45 minutes for the conversation
+- Choose a private, comfortable location
+- Prepare interview questions in advance
+
+Please address this scheduling request promptly to ensure a smooth offboarding process for the employee.
+
+---
+This is an automated reminder from the HR Automation System
+Access the HR Dashboard to schedule the interview
+Sent on {{ current_date }}

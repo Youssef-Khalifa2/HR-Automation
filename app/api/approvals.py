@@ -4,6 +4,9 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
+import time
+import logging
+import asyncio
 
 from app.database import get_db
 from app.crud import get_submission, update_submission
@@ -12,6 +15,7 @@ from app.core.security import verify_approval_token_for_request, get_approval_to
 from app.services.email import get_email_service, EmailTemplates
 from app.models.submission import ResignationStatus
 from config import BASE_URL
+import config
 
 router = APIRouter(tags=["approvals"])
 
@@ -45,7 +49,11 @@ async def process_approval(
             )
 
         # Verify token
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Approval request received: submission_id={submission_id}, action={action}")
         token_data = verify_approval_token_for_request(token)
+        logger.info(f"Token verified: approver_type={token_data.get('approver_type')}")
         if token_data["submission_id"] != submission_id:
             raise HTTPException(
                 status_code=401,
@@ -96,12 +104,16 @@ async def leader_approval_page(
     """
     Leader approval page with secure token
     """
+    start_time = time.time()
     try:
-        print(f"DEBUG: Leader approval page accessed - submission_id={submission_id}, action={action}")
+        print(f"[TIMING] Leader approval page START - submission_id={submission_id}, action={action}")
         print(f"DEBUG: Token (first 50 chars): {token[:50]}...")
 
         # Verify token
+        token_start = time.time()
         token_data = verify_approval_token_for_request(token)
+        token_time = time.time() - token_start
+        print(f"[TIMING] Token verification took {token_time:.3f}s")
         print(f"DEBUG: Token verified successfully - {token_data}")
 
         if token_data["submission_id"] != submission_id or token_data["approver_type"] != "leader":
@@ -112,29 +124,57 @@ async def leader_approval_page(
             )
 
         # Get submission
+        db_start = time.time()
         submission = get_submission(db, submission_id)
+        db_time = time.time() - db_start
+        print(f"[TIMING] Database query took {db_time:.3f}s")
+
         if not submission:
             return HTMLResponse(content="<h2>Submission not found</h2>", status_code=404)
 
         # Render approval page
+        render_start = time.time()
         html_content = generate_approval_page(
             submission=submission,
             approver_type="leader",
             action=action,
             token=token
         )
+        render_time = time.time() - render_start
+        print(f"[TIMING] HTML rendering took {render_time:.3f}s")
+
+        total_time = time.time() - start_time
+        print(f"[TIMING] Leader approval page COMPLETED - Total: {total_time:.3f}s")
+
         return HTMLResponse(content=html_content)
 
     except HTTPException:
         raise
+    except asyncio.TimeoutError as e:
+        total_time = time.time() - start_time
+        print(f"[TIMEOUT] Leader approval page timed out after {total_time:.3f}s: {str(e)}")
+        return HTMLResponse(
+            content=f"<h2>Request Timeout</h2><p>The approval page took too long to load ({total_time:.1f}s). Please try again.</p>",
+            status_code=408
+        )
     except Exception as e:
-        print(f"ERROR: Approval page failed - {str(e)}")
+        total_time = time.time() - start_time
+        print(f"[ERROR] Leader approval page failed after {total_time:.3f}s: {str(e)}")
         import traceback
         traceback.print_exc()
-        return HTMLResponse(
-            content=f"<h2>Error loading approval page: {str(e)}</h2><p>Check server logs for details.</p>",
-            status_code=500
-        )
+
+        # Check for specific connection errors
+        error_msg = str(e).lower()
+        if "connection" in error_msg or "timeout" in error_msg or "network" in error_msg:
+            return HTMLResponse(
+                content=f"<h2>Connection Error</h2><p>Unable to connect to database or services. Please try again later.</p><p><small>Error: {str(e)}</small></p>",
+                status_code=503
+            )
+        else:
+            return HTMLResponse(
+                content=f"<h2>Error loading approval page</h2><p>An unexpected error occurred. Please check server logs.</p><p><small>Error: {str(e)}</small></p>",
+                status_code=500
+            )
 
 
 @router.get("/approve/chm/{submission_id}", response_class=HTMLResponse)
@@ -147,9 +187,16 @@ async def chm_approval_page(
     """
     CHM approval page with secure token
     """
+    start_time = time.time()
     try:
+        print(f"[TIMING] CHM approval page START - submission_id={submission_id}, action={action}")
+
         # Verify token
+        token_start = time.time()
         token_data = verify_approval_token_for_request(token)
+        token_time = time.time() - token_start
+        print(f"[TIMING] CHM token verification took {token_time:.3f}s")
+
         if token_data["submission_id"] != submission_id or token_data["approver_type"] != "chm":
             raise HTTPException(
                 status_code=401,
@@ -157,17 +204,28 @@ async def chm_approval_page(
             )
 
         # Get submission
+        db_start = time.time()
         submission = get_submission(db, submission_id)
+        db_time = time.time() - db_start
+        print(f"[TIMING] CHM database query took {db_time:.3f}s")
+
         if not submission:
             return HTMLResponse(content="<h2>Submission not found</h2>", status_code=404)
 
         # Render approval page
+        render_start = time.time()
         html_content = generate_approval_page(
             submission=submission,
             approver_type="chm",
             action=action,
             token=token
         )
+        render_time = time.time() - render_start
+        print(f"[TIMING] CHM HTML rendering took {render_time:.3f}s")
+
+        total_time = time.time() - start_time
+        print(f"[TIMING] CHM approval page COMPLETED - Total: {total_time:.3f}s")
+
         return HTMLResponse(content=html_content)
 
     except HTTPException:
@@ -193,12 +251,17 @@ async def process_approval_logic(
     """Process the approval logic and send appropriate emails"""
 
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Processing approval: approver_type={approver_type}, action={action}, current_status={submission.resignation_status}")
         current_status = submission.resignation_status
         new_status = current_status
         message = ""
 
         # Leader approval logic
         if approver_type == "leader":
+            logger.info(f"Leader approval logic triggered")
             if current_status != ResignationStatus.SUBMITTED.value:
                 raise HTTPException(
                     status_code=400,
@@ -212,7 +275,11 @@ async def process_approval_logic(
                 message = "Submission approved by Team Leader"
 
                 # Send CHM approval email
-                await send_chm_approval_email(submission)
+                email_sent = await send_chm_approval_email(submission)
+                if not email_sent:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"CHM approval email failed for submission {submission.id}, but approval was processed")
 
             elif action == "reject":
                 new_status = ResignationStatus.LEADER_REJECTED.value
@@ -358,9 +425,14 @@ def generate_approval_page(
     """
 
 
-async def send_chm_approval_email(submission):
+async def send_chm_approval_email(submission) -> bool:
     """Send approval email to Chinese Head"""
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Attempting to send CHM approval email for submission {submission.id}")
+
         email_service = get_email_service()
         token_service = get_approval_token_service()
 
@@ -372,6 +444,30 @@ async def send_chm_approval_email(submission):
             base_url=BASE_URL
         )
 
+        # Get leader mapping to find CHM info
+        from app.services.leader_mapping import get_leader_mapping
+        leader_mapping = get_leader_mapping()
+
+        # Try to find CHM email through leader mapping
+        chm_email = config.CHM_test_mail  # Default fallback
+        chm_name = "Chinese Head"
+
+        # Look for leader info in submission or through mapping
+        leader_name = None
+        if hasattr(submission, 'leader_name') and submission.leader_name:
+            leader_name = submission.leader_name
+        else:
+            # Try to find leader through CRM or other means
+            # For now, use a default or search based on employee
+            leader_name = None
+
+        if leader_name:
+            leader_info = leader_mapping.get_leader_info(leader_name)
+            if leader_info and leader_info.get('chm_email'):
+                chm_email = leader_info['chm_email']
+                chm_name = leader_info['chm_name']
+                logger.info(f"✅ Auto-mapped CHM for leader {leader_name}: {chm_name} → {chm_email}")
+
         # Prepare submission data
         email_data = {
             "employee_name": submission.employee_name,
@@ -380,40 +476,87 @@ async def send_chm_approval_email(submission):
             "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
             "leader_approved": True,
             "leader_notes": submission.team_leader_notes or "",
-            "chm_email": "youssefkhalifa458@gmail.com",  # CHM email for testing
-            "chm_name": "Chinese Head"
+            "chm_email": chm_email,
+            "chm_name": chm_name
         }
+
+        logger.info(f"Sending CHM approval email to: {chm_email} ({chm_name})")
+        logger.debug(f"Email data keys: {list(email_data.keys())}")
 
         # Create and send email
         email_message = EmailTemplates.chm_approval_request(email_data, approval_url)
-        await email_service.send_email(email_message)
-        print(f"✅ CHM approval email sent for submission {submission.id}")
+        logger.debug(f"EmailMessage created - to_email: {email_message.to_email}")
+
+        success = await email_service.send_email(email_message)
+        if success:
+            logger.info(f"[SUCCESS] CHM approval email sent for submission {submission.id} to {chm_email} ({chm_name})")
+            return True
+        else:
+            logger.error(f"[ERROR] CHM approval email FAILED for submission {submission.id} to {chm_email}")
+            return False
 
     except Exception as e:
-        print(f"❌ Failed to send CHM approval email: {str(e)}")
+        import traceback
+        logger.error(f"[ERROR] Failed to send CHM approval email: {str(e)}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return False
 
 
 async def send_hr_notification(submission, message_type: str):
-    """Send notification to HR department"""
+    """Send interview scheduling form to HR department"""
     try:
-        email_service = get_email_service()
+        # Only send interview scheduling form when CHM approves
+        if message_type == "chm_approved":
+            from app.services.tokenized_forms import get_tokenized_form_service
+            from config import BASE_URL, HR_EMAIL
 
-        # Prepare submission data
-        email_data = {
-            "employee_name": submission.employee_name,
-            "employee_email": submission.employee_email,
-            "submission_data": {
+            email_service = get_email_service()
+            token_service = get_tokenized_form_service()
+
+            # Create token for interview scheduling
+            token = token_service.create_interview_scheduling_token(
+                submission_id=submission.id,
+                employee_email=submission.employee_email
+            )
+
+            # Create interview scheduling form URL
+            interview_url = f"{BASE_URL}/forms/schedule-interview?token={token}"
+
+            # Prepare email data with interview scheduling form
+            email_data = {
+                "employee_name": submission.employee_name,
+                "employee_email": submission.employee_email,
+                "submission_id": submission.id,
                 "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
-                "leader_notes": submission.team_leader_notes,
-                "chinese_head_notes": submission.chinese_head_notes
-            },
-            "message_type": message_type
-        }
+                "leader_notes": submission.team_leader_notes or "",
+                "chinese_head_notes": submission.chinese_head_notes or "",
+                "interview_scheduling_url": interview_url,
+                "submission_date": submission.submission_date.strftime("%Y-%m-%d")
+            }
 
-        # Create and send email
-        email_message = EmailTemplates.hr_notification(email_data, message_type)
-        await email_service.send_email(email_message)
-        print(f"✅ HR notification sent for {message_type} - submission {submission.id}")
+            # Create and send interview scheduling email
+            email_message = EmailTemplates.hr_interview_scheduling_request(email_data, interview_url)
+            await email_service.send_email(email_message)
+            print(f"✅ HR interview scheduling form sent for submission {submission.id}")
+
+        else:
+            # For other message types (rejections), send regular notification
+            email_service = get_email_service()
+            email_data = {
+                "employee_name": submission.employee_name,
+                "employee_email": submission.employee_email,
+                "submission_data": {
+                    "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
+                    "leader_notes": submission.team_leader_notes,
+                    "chinese_head_notes": submission.chinese_head_notes
+                },
+                "message_type": message_type
+            }
+            email_message = EmailTemplates.hr_notification(email_data, message_type)
+            await email_service.send_email(email_message)
+            print(f"✅ HR notification sent for {message_type} - submission {submission.id}")
 
     except Exception as e:
         print(f"❌ Failed to send HR notification: {str(e)}")
+        import traceback
+        traceback.print_exc()

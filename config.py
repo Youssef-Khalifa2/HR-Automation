@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
 
+    # Timeout Configurations
+    HTTP_TIMEOUT: float = 30.0
+    SMTP_TIMEOUT: float = 10.0
+    SMTP_SOCKET_TIMEOUT: float = 10.0
+    DATABASE_TIMEOUT: int = 30
+    APPROVAL_PAGE_TIMEOUT: float = 15.0
+
     # Database Configuration
     DATABASE_URL: str = "postgresql+psycopg://postgres:123@localhost:5432/appdb"
 
@@ -31,8 +38,9 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "HR Automation System"
     SMTP_USE_TLS: bool = True
 
-    # HR Configuration
-    HR_EMAIL: str = "hr@company.com"
+    # Email Recipients Configuration
+    HR_EMAIL: str = "youssefkhalifa@51talk.com"  # HR department email for all notifications
+    IT_EMAIL: str = "youssefkhalifa@51talk.com"  # IT department email for asset clearance
 
     # IMAP Configuration (future use)
     IMAP_HOST: Optional[str] = None
@@ -52,6 +60,7 @@ SECRET_KEY = settings.SECRET_KEY
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 BASE_URL = settings.APP_BASE_URL
 HR_EMAIL = settings.HR_EMAIL
+CHM_test_mail = "youssefkhalifa458@gmail.com"
 
 # Email configuration (legacy access)
 SMTP_HOST = settings.SMTP_HOST

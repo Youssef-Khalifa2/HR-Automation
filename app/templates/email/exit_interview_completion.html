@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exit Interview Completed</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .success-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .info-box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+            border-radius: 5px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+        .checkmark {
+            font-size: 48px;
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="checkmark">✓</div>
+        <h1>Exit Interview Completed</h1>
+        <p>Thank you for your valuable feedback</p>
+    </div>
+
+    <div class="content">
+        <div class="success-box">
+            <h3>Interview Status: Completed</h3>
+            <p>Your exit interview has been successfully completed and recorded.</p>
+        </div>
+
+        <p>Dear <strong>{{ employee_name }}</strong>,</p>
+
+        <p>Thank you for taking the time to participate in your exit interview. Your feedback is incredibly valuable to us and will help us improve our workplace for current and future employees.</p>
+
+        <div class="info-box">
+            <h3>Next Steps</h3>
+            <p>Now that your exit interview is complete:</p>
+            <ul>
+                <li>IT department has been notified for clearance processing</li>
+                <li>Asset return instructions will be provided</li>
+                <li>Final paycheck and documentation will be processed</li>
+                <li>Your feedback will be reviewed by management for improvements</li>
+            </ul>
+        </div>
+
+        {% if notes %}
+        <div class="info-box">
+            <h3>Interview Notes</h3>
+            <p>{{ notes }}</p>
+        </div>
+        {% endif %}
+
+        <div class="info-box">
+            <h3>Important Reminders</h3>
+            <ul>
+                <li><strong>Last Working Day:</strong> {{ last_working_day }}</li>
+                <li>Please return all company assets before your last day</li>
+                <li>Ensure all pending work is properly handed over</li>
+                <li>Contact IT for any account access needs</li>
+            </ul>
+        </div>
+
+        <p>We sincerely appreciate your contributions to our team and wish you the very best in your future endeavors. Your feedback will help us create a better work environment for everyone.</p>
+
+        <p>If you have any questions about the offboarding process or need assistance with anything, please don't hesitate to reach out to HR.</p>
+
+        <div class="footer">
+            <p><em>This is an automated message from the HR Automation System</em></p>
+            <p>If you have any questions, please contact HR directly.</p>
+            <p>Sent on {{ current_date }}</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,36 @@
+EXIT INTERVIEW COMPLETED - THANK YOU
+
+Dear {{ employee_name }},
+
+Thank you for taking the time to participate in your exit interview. Your feedback is incredibly valuable to us and will help us improve our workplace for current and future employees.
+
+INTERVIEW STATUS: COMPLETED ✓
+
+Your exit interview has been successfully completed and recorded.
+
+NEXT STEPS
+Now that your exit interview is complete:
+- IT department has been notified for clearance processing
+- Asset return instructions will be provided
+- Final paycheck and documentation will be processed
+- Your feedback will be reviewed by management for improvements
+
+{% if notes %}
+INTERVIEW NOTES
+{{ notes }}
+{% endif %}
+
+IMPORTANT REMINDERS
+- Last Working Day: {{ last_working_day }}
+- Please return all company assets before your last day
+- Ensure all pending work is properly handed over
+- Contact IT for any account access needs
+
+We sincerely appreciate your contributions to our team and wish you the very best in your future endeavors. Your feedback will help us create a better work environment for everyone.
+
+If you have any questions about the offboarding process or need assistance with anything, please don't hesitate to reach out to HR.
+
+---
+This is an automated message from the HR Automation System
+If you have any questions, please contact HR directly.
+Sent on {{ current_date }}

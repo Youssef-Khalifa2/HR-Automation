@@ -1,0 +1,32 @@
+EXIT INTERVIEW INVITATION
+
+Dear {{ employee_name }},
+
+We hope this email finds you well. As you prepare to transition from your role as {{ position }} in the {{ department }} department, we would like to invite you to participate in an exit interview.
+
+EXIT INTERVIEW DETAILS:
+- Employee: {{ employee_name }}
+- Position: {{ position }}
+- Department: {{ department }}
+- Last Working Day: {{ last_working_day }}
+{% if interview_notes %}
+- Additional Notes: {{ interview_notes }}
+{% endif %}
+
+WHY YOUR FEEDBACK MATTERS
+Your honest feedback about your experience with us is incredibly valuable. It helps us:
+- Improve our workplace culture and environment
+- Enhance our management and leadership practices
+- Make the experience better for current and future employees
+- Identify areas where we can grow and improve
+
+The exit interview will be a confidential conversation where you can share your thoughts openly about your experience with the company. We'll discuss your reasons for leaving, what you enjoyed about your role, and any suggestions for improvement.
+
+Please contact the HR department to schedule your exit interview at a convenient time before your last working day.
+
+Thank you for your contributions to our team, and we wish you all the best in your future endeavors.
+
+---
+This is an automated message from the HR Automation System
+If you have any questions, please contact HR directly.
+Sent on {{ current_date }}

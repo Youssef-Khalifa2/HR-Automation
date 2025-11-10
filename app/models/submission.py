@@ -66,3 +66,4 @@ class Submission(Base):
 
     # Relationships
     assets = relationship("Asset", back_populates="submission", uselist=False)
+    exit_interview = relationship("ExitInterview", back_populates="submission", uselist=False)

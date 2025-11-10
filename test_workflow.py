@@ -12,7 +12,7 @@ Tests the complete Phase 2 workflow:
 
 Uses specified test emails:
 - Team Leader: youssefkhalifa@51talk.com
-- CHM: youssefkhalifa458@gmail.com
+- CHM: newchm@example.com
 """
 
 import requests
@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 from typing import Dict, Any
 import time
 from urllib.parse import urlparse, parse_qs
+
+import config
 
 class WorkflowTester:
     def __init__(self):
@@ -73,6 +75,8 @@ class WorkflowTester:
                 json=submission_data,
                 timeout=10
             )
+
+
 
             if response.status_code == 200:
                 result = response.json()
@@ -183,7 +187,7 @@ class WorkflowTester:
 
             submission_id = self.workflow_data["submission"]["id"]
             print(f"📋 Testing CHM approval for submission: {submission_id}")
-            print(f"📧 Email should be sent to: youssefkhalifa458@gmail.com")
+            print(f"📧 Email should be sent to: {config.CHM_test_mail}")
 
             # Generate CHM approval URL
             from app.core.security import ApprovalTokenService
@@ -258,10 +262,11 @@ class WorkflowTester:
         print("="*60)
 
         try:
-            # Create a new submission for rejection test
+            # Create a new submission for rejection test with unique email
+            unique_id = int(time.time()) + 10000  # Different from step 1
             submission_data = {
-                "employee_name": "Rejection Test Employee",
-                "employee_email": "rejectiontest@company.com",
+                "employee_name": f"Rejection Test Employee {unique_id}",
+                "employee_email": f"rejectiontest_{unique_id}@company.com",
                 "joining_date": "2024-02-01T00:00:00",
                 "submission_date": "2024-10-30T00:00:00",
                 "last_working_day": "2024-11-30T00:00:00",
@@ -358,7 +363,7 @@ class WorkflowTester:
         print("This will test the entire Phase 2 approval workflow:")
         print("1. Create resignation submission")
         print("2. Leader approval (youssefkhalifa@51talk.com)")
-        print("3. CHM approval (youssefkhalifa458@gmail.com)")
+        print(f"3. CHM approval {config.CHM_test_mail}")
         print("4. Rejection workflow validation")
         print("=" * 80)
 
@@ -436,7 +441,7 @@ class WorkflowTester:
             print("   ✓ Single approval links work correctly")
             print("\\n🚀 Ready for production with your test emails:")
             print("   👨‍💼 Team Leader: youssefkhalifa@51talk.com")
-            print("   👔 CHM: youssefkhalifa458@gmail.com")
+            print(f"   👔 CHM: {config.CHM_test_mail}")
         else:
             print("\\n⚠️  Some workflow steps failed. Review and fix the issues above.")
 

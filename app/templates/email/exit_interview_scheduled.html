@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exit Interview Scheduled</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .info-box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+        }
+        .highlight {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+        .calendar-icon {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="calendar-icon">📅</div>
+        <h1>Exit Interview Scheduled</h1>
+        <p>Your exit interview has been scheduled</p>
+    </div>
+
+    <div class="content">
+        <p>Dear <strong>{{ employee_name }}</strong>,</p>
+
+        <p>Your exit interview has been scheduled successfully. Please find the details below:</p>
+
+        <div class="info-box">
+            <h3>Exit Interview Details</h3>
+            <p><strong>Date:</strong> {{ scheduled_date }}</p>
+            <p><strong>Time:</strong> {{ scheduled_time }}</p>
+            <p><strong>Location:</strong> {{ location }}</p>
+            <p><strong>Interviewer:</strong> {{ interviewer }}</p>
+            <p><strong>Position:</strong> {{ position }}</p>
+            <p><strong>Department:</strong> {{ department }}</p>
+            <p><strong>Last Working Day:</strong> {{ last_working_day }}</p>
+        </div>
+
+        <div class="highlight">
+            <h3>Important Information</h3>
+            <p><strong>Please arrive 5-10 minutes early</strong> for your interview.</p>
+            <p>The interview will take approximately 30-45 minutes.</p>
+            <p>This is an opportunity to share your valuable feedback about your experience with the company.</p>
+        </div>
+
+        <div class="info-box">
+            <h3>What to Expect</h3>
+            <p>During the exit interview, we'll discuss:</p>
+            <ul>
+                <li>Your reasons for leaving</li>
+                <li>Your experience with the company</li>
+                <li>What you enjoyed about your role</li>
+                <li>Suggestions for improvement</li>
+                <li>Your future plans</li>
+            </ul>
+        </div>
+
+        <p>Your honest feedback is incredibly valuable to us and will help us improve our workplace for current and future employees. All information shared during the interview will be treated confidentially.</p>
+
+        <p>If you need to reschedule or have any questions, please contact the HR department as soon as possible.</p>
+
+        <p>We appreciate your contributions to our team and wish you all the best in your future endeavors.</p>
+
+        <div class="footer">
+            <p><em>This is an automated message from the HR Automation System</em></p>
+            <p>If you have any questions, please contact HR directly.</p>
+            <p>Sent on {{ current_date }}</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -7,7 +7,6 @@ from app.auth import (
     verify_token,
     authenticate_user,
     get_current_user,
-    get_current_active_user,
     get_current_hr_user,
     create_user,
     # Configuration variables

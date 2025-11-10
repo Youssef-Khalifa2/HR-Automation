@@ -72,6 +72,54 @@
     </div>
 </div>
 
+<!-- Phase 3: Exit Interviews Section -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold">
+                    <i class="fas fa-calendar-check me-2"></i>
+                    Upcoming Exit Interviews
+                </h6>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshUpcomingInterviews()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="upcomingInterviewsList">
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Pending Interview Feedback
+                </h6>
+                <button class="btn btn-sm btn-outline-warning" onclick="refreshPendingFeedback()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="pendingFeedbackList">
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Recent Submissions -->
 <div class="row">
     <div class="col-lg-8">
@@ -219,9 +267,16 @@
                 <td><span class="badge ${getStatusBadgeClass(submission.resignation_status)}">${submission.resignation_status.replace('_', ' ')}</span></td>
                 <td><small>${formatDate(submission.created_at)}</small></td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="viewSubmission(${submission.id})">
-                        <i class="fas fa-eye"></i>
-                    </button>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewSubmission(${submission.id})" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${submission.resignation_status === 'chm_approved' && submission.exit_interview_status === 'not_scheduled' ? `
+                            <button class="btn btn-sm btn-outline-warning" onclick="skipExitInterview(${submission.id}, '${submission.employee_name.replace(/'/g, "\\'")}')" title="Skip Exit Interview">
+                                <i class="fas fa-forward"></i>
+                            </button>
+                        ` : ''}
+                    </div>
                 </td>
             </tr>
         `).join('');
@@ -255,8 +310,17 @@
                 icon = 'fa-calendar';
             }
 
+            // Add click functionality for interview scheduling
+            let onClickAction = '';
+            let buttonClass = '';
+
+            if (item.resignation_status === 'chm_approved' && item.exit_interview_status === 'not_scheduled') {
+                onClickAction = `onclick="openScheduleInterviewModal(${item.id}, '${item.employee_name}', '${item.employee_email}', '${item.department || 'General'}', '${item.position || 'Employee'}')"`;
+                buttonClass = 'cursor-pointer hover:bg-light';
+            }
+
             return `
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded ${buttonClass}" ${onClickAction}>
                     <div>
                         <div class="fw-bold">${item.employee_name}</div>
                         <small class="text-muted">${action}</small>
@@ -280,7 +344,471 @@
         console.error(message);
     }
 
+    // Phase 3: Exit Interview Scheduling Functions
+
+    // Open interview scheduling modal
+    function openScheduleInterviewModal(submissionId, employeeName, employeeEmail, department, position) {
+        document.getElementById('scheduleSubmissionId').value = submissionId;
+        document.getElementById('scheduleEmployeeName').textContent = employeeName;
+        document.getElementById('scheduleEmployeeEmail').textContent = employeeEmail;
+        document.getElementById('scheduleDepartment').textContent = department;
+        document.getElementById('schedulePosition').textContent = position;
+
+        // Set minimum date to tomorrow
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const minDate = tomorrow.toISOString().split('T')[0];
+        document.getElementById('scheduleDate').min = minDate;
+
+        const modal = new bootstrap.Modal(document.getElementById('scheduleInterviewModal'));
+        modal.show();
+    }
+
+    // Schedule interview
+    async function scheduleInterview() {
+        const form = document.getElementById('scheduleInterviewForm');
+        const formData = new FormData(form);
+
+        const scheduleData = {
+            submission_id: parseInt(formData.get('submission_id')),
+            scheduled_date: formData.get('scheduled_date'),
+            scheduled_time: formData.get('scheduled_time'),
+            location: formData.get('location'),
+            interviewer: formData.get('interviewer')
+        };
+
+        try {
+            const result = await apiCall('POST', '/submissions/exit-interviews/schedule', scheduleData);
+
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('scheduleInterviewModal')).hide();
+
+            // Show success message
+            showAlert('success', result.message);
+
+            // Refresh dashboard data
+            loadDashboardData();
+
+            // Clear form
+            form.reset();
+
+        } catch (error) {
+            console.error('Error scheduling interview:', error);
+            showAlert('danger', error.response?.data?.detail || 'Failed to schedule interview. Please try again.');
+        }
+    }
+
+    // Show alert message
+    function showAlert(type, message) {
+        const alertContainer = document.getElementById('alertContainer');
+        const alertId = 'alert-' + Date.now();
+
+        const alertHtml = `
+            <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+
+        alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+
+    // Phase 3: Exit Interview Management Functions
+
+    // Load upcoming interviews
+    async function loadUpcomingInterviews() {
+        try {
+            console.log('📅 Loading upcoming interviews...');
+            const result = await apiCall('GET', '/submissions/exit-interviews/upcoming?days_ahead=7');
+            console.log('📅 Upcoming interviews loaded:', result.interviews.length, 'items');
+            renderUpcomingInterviews(result.interviews);
+
+        } catch (error) {
+            console.error('❌ Error loading upcoming interviews:', error);
+            renderUpcomingInterviews([]); // Show empty state
+        }
+    }
+
+    // Load pending feedback interviews
+    async function loadPendingFeedback() {
+        try {
+            console.log('⚠️ Loading pending feedback interviews...');
+            const result = await apiCall('GET', '/submissions/exit-interviews/pending-feedback');
+            console.log('⚠️ Pending feedback loaded:', result.interviews.length, 'items');
+            renderPendingFeedback(result.interviews);
+
+        } catch (error) {
+            console.error('❌ Error loading pending feedback:', error);
+            renderPendingFeedback([]); // Show empty state
+        }
+    }
+
+    // Render upcoming interviews
+    function renderUpcomingInterviews(interviews) {
+        const container = document.getElementById('upcomingInterviewsList');
+
+        if (interviews.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center mb-0">No upcoming interviews</p>';
+            return;
+        }
+
+        container.innerHTML = interviews.map(interview => `
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                <div>
+                    <div class="fw-bold">${interview.employee_name}</div>
+                    <small class="text-muted">
+                        ${interview.scheduled_date} at ${interview.scheduled_time}
+                        ${interview.days_until_interview === 0 ? '(Today)' : `(${interview.days_until_interview} days)`}
+                    </small>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted d-block">${interview.location}</small>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewSubmission(${interview.submission_id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Render pending feedback interviews
+    function renderPendingFeedback(interviews) {
+        const container = document.getElementById('pendingFeedbackList');
+
+        if (interviews.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center mb-0">No pending feedback</p>';
+            return;
+        }
+
+        container.innerHTML = interviews.map(interview => {
+            const isOverdue = interview.days_overdue > 0;
+            const badgeClass = isOverdue ? 'bg-danger' : 'bg-warning';
+            const overdueText = isOverdue ? `${interview.days_overdue} days overdue` : 'Ready for feedback';
+
+            return `
+                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded ${isOverdue ? 'border-danger' : 'border-warning'}">
+                    <div>
+                        <div class="fw-bold">${interview.employee_name}</div>
+                        <small class="text-muted">
+                            ${interview.scheduled_date} at ${interview.scheduled_time}
+                            <span class="badge ${badgeClass} ms-1">${overdueText}</span>
+                        </small>
+                    </div>
+                    <button class="btn btn-sm btn-${isOverdue ? 'danger' : 'warning'}"
+                            onclick="openFeedbackModal(${interview.interview_id}, '${interview.employee_name}', '${interview.scheduled_date}', '${interview.scheduled_time}')">
+                        <i class="fas fa-edit"></i> Submit Feedback
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Refresh functions
+    function refreshUpcomingInterviews() {
+        loadUpcomingInterviews();
+    }
+
+    function refreshPendingFeedback() {
+        loadPendingFeedback();
+    }
+
+    // Open feedback submission modal
+    function openFeedbackModal(interviewId, employeeName, interviewDate, interviewTime) {
+        document.getElementById('feedbackInterviewId').value = interviewId;
+        document.getElementById('feedbackEmployeeName').textContent = employeeName;
+        document.getElementById('feedbackInterviewDate').textContent = interviewDate;
+        document.getElementById('feedbackInterviewTime').textContent = interviewTime;
+
+        const modal = new bootstrap.Modal(document.getElementById('submitFeedbackModal'));
+        modal.show();
+    }
+
+    // Submit interview feedback
+    async function submitInterviewFeedback() {
+        const form = document.getElementById('submitFeedbackForm');
+        const formData = new FormData(form);
+
+        const feedbackData = {
+            interview_id: parseInt(formData.get('interview_id')),
+            interview_feedback: formData.get('interview_feedback'),
+            interview_rating: formData.get('interview_rating') ? parseInt(formData.get('interview_rating')) : null,
+            hr_notes: formData.get('hr_notes')
+        };
+
+        try {
+            const result = await apiCall('POST', '/submissions/exit-interviews/submit-feedback', feedbackData);
+
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('submitFeedbackModal')).hide();
+
+            // Show success message
+            showAlert('success', result.message);
+
+            // Refresh all interview data
+            loadUpcomingInterviews();
+            loadPendingFeedback();
+            loadDashboardData();
+
+            // Clear form
+            form.reset();
+
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            showAlert('danger', error.response?.data?.detail || 'Failed to submit feedback. Please try again.');
+        }
+    }
+
+    // Enhanced loadDashboardData to include interview data
+    async function loadDashboardData() {
+        console.log('🚀 Starting to load dashboard data...');
+        try {
+            console.log('📡 Fetching submissions...');
+            const submissions = await apiCall('GET', '/submissions/');
+            console.log('📊 Submissions loaded:', submissions.length, 'items');
+
+            // Calculate statistics
+            const total = submissions.length;
+            const pending = submissions.filter(s =>
+                s.resignation_status === 'submitted' ||
+                s.resignation_status === 'leader_approved'
+            ).length;
+            const completed = submissions.filter(s =>
+                s.resignation_status === 'chm_approved' ||
+                s.resignation_status === 'exit_done'
+            ).length;
+            const exitInterviews = submissions.filter(s =>
+                s.exit_interview_status === 'scheduled' ||
+                s.exit_interview_status === 'done'
+            ).length;
+
+            // Update stats
+            document.getElementById('totalSubmissions').textContent = total;
+            document.getElementById('pendingApprovals').textContent = pending;
+            document.getElementById('completedMonth').textContent = completed;
+            document.getElementById('exitInterviews').textContent = exitInterviews;
+
+            // Load recent submissions
+            const recentSubmissions = submissions
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .slice(0, 10);
+            renderRecentSubmissions(recentSubmissions);
+            renderPendingItems(submissions);
+
+            // Load Phase 3 interview data
+            console.log('🔄 Loading Phase 3 interview data...');
+            await Promise.all([
+                loadUpcomingInterviews(),
+                loadPendingFeedback()
+            ]);
+            console.log('✅ Dashboard data loaded successfully!');
+        } catch (error) {
+            console.error('❌ Error loading dashboard data:', error);
+            showError('Failed to load dashboard data: ' + error.message);
+        }
+    }
+
+    // Skip exit interview function
+    async function skipExitInterview(submissionId, employeeName) {
+        if (!confirm(`Are you sure you want to skip the exit interview for ${employeeName}?\n\nThis will expedite the offboarding process and send the IT assets collection form directly.`)) {
+            return;
+        }
+
+        try {
+            showLoading();
+
+            const response = await apiCall('POST', '/forms/skip-interview', {
+                submission_id: submissionId,
+                skip_reason: document.getElementById('skipReason')?.value || 'Special case - expedited offboarding'
+            });
+
+            if (response.success) {
+                showSuccess(`Exit interview skipped for ${employeeName}. IT department has been notified.`);
+
+                // Refresh dashboard data to show updated status
+                await loadDashboardData();
+
+                // Clear skip reason if it exists
+                const skipReasonInput = document.getElementById('skipReason');
+                if (skipReasonInput) skipReasonInput.value = '';
+
+            } else {
+                showError(response.message || 'Failed to skip exit interview');
+            }
+        } catch (error) {
+            console.error('Error skipping exit interview:', error);
+            showError('Failed to skip exit interview: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
     // Load data when page loads
     document.addEventListener('DOMContentLoaded', loadDashboardData);
 </script>
+
+<!-- Phase 3: Exit Interview Scheduling Modal -->
+<div class="modal fade" id="scheduleInterviewModal" tabindex="-1" aria-labelledby="scheduleInterviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scheduleInterviewModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>
+                    Schedule Exit Interview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Employee Information -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Employee Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Name:</strong> <span id="scheduleEmployeeName"></span></p>
+                                <p><strong>Email:</strong> <span id="scheduleEmployeeEmail"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Department:</strong> <span id="scheduleDepartment"></span></p>
+                                <p><strong>Position:</strong> <span id="schedulePosition"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interview Scheduling Form -->
+                <form id="scheduleInterviewForm">
+                    <input type="hidden" id="scheduleSubmissionId" name="submission_id">
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="scheduleDate" class="form-label">Interview Date *</label>
+                            <input type="date" class="form-control" id="scheduleDate" name="scheduled_date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="scheduleTime" class="form-label">Interview Time *</label>
+                            <input type="time" class="form-control" id="scheduleTime" name="scheduled_time" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="scheduleLocation" class="form-label">Location *</label>
+                            <input type="text" class="form-control" id="scheduleLocation" name="location"
+                                   value="HR Meeting Room" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="scheduleInterviewer" class="form-label">Interviewer *</label>
+                            <input type="text" class="form-control" id="scheduleInterviewer" name="interviewer"
+                                   value="HR Representative" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scheduleNotes" class="form-label">Additional Notes (Optional)</label>
+                        <textarea class="form-control" id="scheduleNotes" name="notes" rows="3"
+                                  placeholder="Any special instructions or notes for the interview..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="scheduleInterview()">
+                    <i class="fas fa-calendar-check me-2"></i>
+                    Schedule Interview
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phase 3: Interview Feedback Submission Modal -->
+<div class="modal fade" id="submitFeedbackModal" tabindex="-1" aria-labelledby="submitFeedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="submitFeedbackModalLabel">
+                    <i class="fas fa-edit me-2"></i>
+                    Submit Exit Interview Feedback
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Interview Information -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Interview Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Employee:</strong> <span id="feedbackEmployeeName"></span></p>
+                                <p><strong>Interview Date:</strong> <span id="feedbackInterviewDate"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Interview Time:</strong> <span id="feedbackInterviewTime"></span></p>
+                                <p><strong>Status:</strong> <span class="badge bg-warning">Pending Feedback</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feedback Submission Form -->
+                <form id="submitFeedbackForm">
+                    <input type="hidden" id="feedbackInterviewId" name="interview_id">
+
+                    <div class="mb-3">
+                        <label for="interviewRating" class="form-label">Interview Rating *</label>
+                        <select class="form-select" id="interviewRating" name="interview_rating" required>
+                            <option value="">Select rating...</option>
+                            <option value="5">5 - Excellent</option>
+                            <option value="4">4 - Good</option>
+                            <option value="3">3 - Average</option>
+                            <option value="2">2 - Below Average</option>
+                            <option value="1">1 - Poor</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="interviewFeedback" class="form-label">Interview Feedback *</label>
+                        <textarea class="form-control" id="interviewFeedback" name="interview_feedback" rows="5" required
+                                  placeholder="Please provide detailed feedback from the exit interview. Include employee's reasons for leaving, feedback about the company, suggestions for improvement, and any other relevant observations..."></textarea>
+                        <div class="form-text">Minimum 50 characters recommended</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="hrNotes" class="form-label">HR Notes (Optional)</label>
+                        <textarea class="form-control" id="hrNotes" name="hr_notes" rows="3"
+                                  placeholder="Internal HR notes, follow-up actions, recommendations, or other observations that should be recorded..."></textarea>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Note:</strong> Submitting this feedback will mark the interview as complete and automatically notify the IT department to begin the clearance process.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="submitInterviewFeedback()">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Submit Feedback & Complete Interview
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Container -->
+<div id="alertContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;"></div>
+
 {% endblock %}

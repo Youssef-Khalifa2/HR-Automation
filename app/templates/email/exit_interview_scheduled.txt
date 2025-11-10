@@ -1,0 +1,38 @@
+EXIT INTERVIEW SCHEDULED
+
+Dear {{ employee_name }},
+
+Your exit interview has been scheduled successfully. Please find the details below:
+
+EXIT INTERVIEW DETAILS
+Date: {{ scheduled_date }}
+Time: {{ scheduled_time }}
+Location: {{ location }}
+Interviewer: {{ interviewer }}
+Position: {{ position }}
+Department: {{ department }}
+Last Working Day: {{ last_working_day }}
+
+IMPORTANT INFORMATION
+- Please arrive 5-10 minutes early for your interview
+- The interview will take approximately 30-45 minutes
+- This is an opportunity to share your valuable feedback about your experience with the company
+
+WHAT TO EXPECT
+During the exit interview, we'll discuss:
+- Your reasons for leaving
+- Your experience with the company
+- What you enjoyed about your role
+- Suggestions for improvement
+- Your future plans
+
+Your honest feedback is incredibly valuable to us and will help us improve our workplace for current and future employees. All information shared during the interview will be treated confidentially.
+
+If you need to reschedule or have any questions, please contact the HR department as soon as possible.
+
+We appreciate your contributions to our team and wish you all the best in your future endeavors.
+
+---
+This is an automated message from the HR Automation System
+If you have any questions, please contact HR directly.
+Sent on {{ current_date }}

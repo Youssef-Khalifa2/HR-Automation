@@ -7,6 +7,8 @@ from jinja2 import Environment, FileSystemLoader
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import asyncio
+import time
+import logging
 from dataclasses import dataclass
 
 
@@ -20,6 +22,12 @@ class EmailConfig:
     use_tls: bool = True
     from_email: str = ""
     from_name: str = "HR Automation System"
+    # Timeout configurations
+    connect_timeout: float = 10.0
+    socket_timeout: float = 10.0
+    # Connection pooling
+    pool_size: int = 5
+    max_idle_time: float = 300.0  # 5 minutes
 
 
 @dataclass
@@ -33,23 +41,58 @@ class EmailMessage:
 
 
 class EmailService:
-    """Email service for sending notifications"""
+    """Email service for sending notifications with connection pooling"""
 
     def __init__(self, config: EmailConfig):
         self.config = config
-        self.smtp = aiosmtplib.SMTP(
-            hostname=config.host,
-            port=config.port,
-            use_tls=config.use_tls
-        )
+        self._smtp = None
+        self._last_used = None
+        self._connection_lock = asyncio.Lock()
         self.jinja_env = Environment(
             loader=FileSystemLoader("app/templates/email"),
             autoescape=True
         )
+        print(f"[EMAIL] Email service initialized with timeout={config.connect_timeout}s")
+
+    async def _get_connection(self):
+        """Get SMTP connection with connection pooling"""
+        async with self._connection_lock:
+            # Check if we need to create a new connection
+            if (self._smtp is None or
+                self._last_used is None or
+                time.time() - self._last_used > self.config.max_idle_time):
+
+                print(f"[EMAIL] Creating new SMTP connection to {self.config.host}:{self.config.port}")
+                connect_start = time.time()
+
+                # Close old connection if exists
+                if self._smtp:
+                    try:
+                        await self._smtp.quit()
+                    except:
+                        pass
+
+                # Create new connection with timeout
+                self._smtp = aiosmtplib.SMTP(
+                    hostname=self.config.host,
+                    port=self.config.port,
+                    use_tls=self.config.use_tls,
+                    timeout=self.config.connect_timeout
+                )
+
+                # Connect and login
+                await self._smtp.connect()
+                await self._smtp.login(self.config.username, self.config.password)
+
+                connect_time = time.time() - connect_start
+                print(f"[EMAIL] SMTP connection established in {connect_time:.3f}s")
+
+            self._last_used = time.time()
+            return self._smtp
 
     async def send_email(self, message: EmailMessage) -> bool:
         """
-        Send an email using configured SMTP
+        Send an email using configured SMTP with connection pooling
 
         Args:
             message: Email message to send
@@ -57,12 +100,19 @@ class EmailService:
         Returns:
             True if sent successfully, False otherwise
         """
+        send_start = time.time()
         try:
+            print(f"[EMAIL] Sending email to {message.to_email}: {message.subject}")
+
             # Render email template
+            render_start = time.time()
             html_content = self._render_template(message.template_name, message.template_data)
             text_content = self._render_text_template(message.template_name, message.template_data)
+            render_time = time.time() - render_start
+            print(f"[EMAIL] Template rendering took {render_time:.3f}s")
 
             # Create email message
+            prep_start = time.time()
             email_msg = MIMEMultipart("alternative")
             email_msg["From"] = f"{self.config.from_name} <{self.config.from_email}>"
             email_msg["To"] = f"{message.to_name} <{message.to_email}>"
@@ -74,17 +124,35 @@ class EmailService:
 
             email_msg.attach(text_part)
             email_msg.attach(html_part)
+            prep_time = time.time() - prep_start
+            print(f"[EMAIL] Message preparation took {prep_time:.3f}s")
 
-            # Connect and send
-            await self.smtp.connect()
-            await self.smtp.login(self.config.username, self.config.password)
-            await self.smtp.send_message(email_msg)
+            # Get connection and send
+            smtp_start = time.time()
+            smtp = await self._get_connection()
+            await smtp.send_message(email_msg)
+            smtp_time = time.time() - smtp_start
+            print(f"[EMAIL] SMTP send took {smtp_time:.3f}s")
 
-            print(f"✅ Email sent to {message.to_email}: {message.subject}")
+            total_time = time.time() - send_start
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"[SUCCESS] Email sent to {message.to_email} in {total_time:.3f}s")
             return True
 
+        except asyncio.TimeoutError as e:
+            total_time = time.time() - send_start
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"[ERROR] Email send timeout after {total_time:.3f}s to {message.to_email}: {str(e)}")
+            return False
         except Exception as e:
-            print(f"❌ Failed to send email to {message.to_email}: {str(e)}")
+            total_time = time.time() - send_start
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"[ERROR] Failed to send email to {message.to_email} after {total_time:.3f}s: {str(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
 
     async def send_bulk_emails(self, messages: List[EmailMessage]) -> Dict[str, int]:
@@ -159,10 +227,18 @@ Please contact HR if you have any questions.
 
     async def close(self):
         """Close SMTP connection"""
-        try:
-            await self.smtp.quit()
-        except:
-            pass
+        async with self._connection_lock:
+            if self._smtp:
+                try:
+                    print("[EMAIL] Closing SMTP connection")
+                    await self._smtp.quit()
+                    self._smtp = None
+                    self._last_used = None
+                    print("[EMAIL] SMTP connection closed")
+                except Exception as e:
+                    print(f"[EMAIL] Error closing SMTP connection: {e}")
+                    self._smtp = None
+                    self._last_used = None
 
 
 class EmailTemplates:
@@ -191,7 +267,7 @@ class EmailTemplates:
     def chm_approval_request(submission_data: Dict[str, Any], approval_url: str) -> EmailMessage:
         """Create CHM approval request email"""
         return EmailMessage(
-            to_email=submission_data.get("chm_email", ""),
+            to_email=submission_data.get("chm_email", "youssefkhalifa458@gmail.com"),
             to_name=submission_data.get("chm_name", "Chinese Head"),
             subject=f"CHM Approval Required: Resignation of {submission_data['employee_name']}",
             template_name="chm_approval",
@@ -218,8 +294,11 @@ class EmailTemplates:
             "new_submission": f"New Submission: {submission_data['employee_name']}"
         }
 
+        # Import from unified config
+        from config import settings
+
         return EmailMessage(
-            to_email=os.getenv("HR_EMAIL", "hr@company.com"),
+            to_email=settings.HR_EMAIL,
             to_name="HR Department",
             subject=subjects.get(message_type, "HR Notification: Resignation Update"),
             template_name="hr_notification",
@@ -228,6 +307,124 @@ class EmailTemplates:
                 "employee_email": submission_data["employee_email"],
                 "message_type": message_type,
                 "submission_data": submission_data,
+                "current_date": datetime.now().strftime("%B %d, %Y")
+            }
+        )
+
+    # Phase 3: Corrected Exit Interview Email Templates
+
+    @staticmethod
+    def exit_interview_scheduled(submission_data: Dict[str, Any]) -> EmailMessage:
+        """Create exit interview scheduled notification for employee"""
+        return EmailMessage(
+            to_email=submission_data["employee_email"],
+            to_name=submission_data["employee_name"],
+            subject=f"Exit Interview Scheduled - {submission_data['scheduled_date']}",
+            template_name="exit_interview_scheduled",
+            template_data={
+                "employee_name": submission_data["employee_name"],
+                "department": submission_data.get("department", "General"),
+                "position": submission_data.get("position", "Employee"),
+                "scheduled_date": submission_data["scheduled_date"],
+                "scheduled_time": submission_data["scheduled_time"],
+                "location": submission_data["location"],
+                "interviewer": submission_data["interviewer"],
+                "last_working_day": submission_data.get("last_working_day", ""),
+                "current_date": datetime.now().strftime("%B %d, %Y")
+            }
+        )
+
+    @staticmethod
+    def hr_schedule_interview_reminder(submission_data: Dict[str, Any]) -> EmailMessage:
+        """Create reminder for HR to schedule exit interview"""
+        # Import from unified config
+        from config import settings
+
+        return EmailMessage(
+            to_email=settings.HR_EMAIL,
+            to_name="HR Department",
+            subject=f"Action Required: Schedule Exit Interview for {submission_data['employee_name']}",
+            template_name="hr_schedule_interview_reminder",
+            template_data={
+                "employee_name": submission_data["employee_name"],
+                "employee_email": submission_data["employee_email"],
+                "department": submission_data.get("department", "General"),
+                "position": submission_data.get("position", "Employee"),
+                "submission_id": submission_data.get("submission_id", ""),
+                "approval_date": submission_data.get("approval_date", ""),
+                "last_working_day": submission_data.get("last_working_day", ""),
+                "current_date": datetime.now().strftime("%B %d, %Y")
+            }
+        )
+
+    @staticmethod
+    def hr_submit_feedback_reminder(submission_data: Dict[str, Any]) -> EmailMessage:
+        """Create reminder for HR to submit interview feedback"""
+        # Import from unified config
+        from config import settings
+
+        return EmailMessage(
+            to_email=settings.HR_EMAIL,
+            to_name="HR Department",
+            subject=f"Action Required: Submit Interview Feedback for {submission_data['employee_name']}",
+            template_name="hr_submit_feedback_reminder",
+            template_data={
+                "employee_name": submission_data["employee_name"],
+                "employee_email": submission_data["employee_email"],
+                "department": submission_data.get("department", "General"),
+                "position": submission_data.get("position", "Employee"),
+                "interview_date": submission_data.get("interview_date", ""),
+                "interview_time": submission_data.get("interview_time", ""),
+                "location": submission_data.get("location", ""),
+                "days_overdue": submission_data.get("days_overdue", 0),
+                "interview_id": submission_data.get("interview_id", ""),
+                "current_date": datetime.now().strftime("%B %d, %Y")
+            }
+        )
+
+    @staticmethod
+    def it_clearance_request(submission_data: Dict[str, Any]) -> EmailMessage:
+        """Create IT clearance request notification"""
+        # Import from unified config
+        from config import settings
+
+        return EmailMessage(
+            to_email=settings.IT_EMAIL,
+            to_name="IT Support Team",
+            subject=f"IT Clearance Required: {submission_data['employee_name']}",
+            template_name="it_clearance_request",
+            template_data={
+                "employee_name": submission_data["employee_name"],
+                "employee_email": submission_data["employee_email"],
+                "department": submission_data.get("department", "General"),
+                "position": submission_data.get("position", "Employee"),
+                "last_working_day": submission_data.get("last_working_day", ""),
+                "assets": submission_data.get("assets", {}),
+                "submission_id": submission_data.get("submission_id", ""),
+                "current_date": datetime.now().strftime("%B %d, %Y")
+            }
+        )
+
+    @staticmethod
+    def hr_interview_scheduling_request(submission_data: Dict[str, Any], interview_url: str) -> EmailMessage:
+        """Create HR interview scheduling request email with form"""
+        # Import from unified config
+        from config import settings
+
+        return EmailMessage(
+            to_email=settings.HR_EMAIL,
+            to_name="HR Department",
+            subject=f"Action Required: Schedule Exit Interview for {submission_data['employee_name']}",
+            template_name="hr_interview_scheduling_request",
+            template_data={
+                "employee_name": submission_data["employee_name"],
+                "employee_email": submission_data["employee_email"],
+                "submission_id": submission_data["submission_id"],
+                "last_working_day": submission_data.get("last_working_day", ""),
+                "submission_date": submission_data.get("submission_date", ""),
+                "leader_notes": submission_data.get("leader_notes", ""),
+                "chinese_head_notes": submission_data.get("chinese_head_notes", ""),
+                "interview_scheduling_url": interview_url,
                 "current_date": datetime.now().strftime("%B %d, %Y")
             }
         )
@@ -256,7 +453,9 @@ def create_email_service() -> EmailService:
         password=settings.SMTP_PASS,
         use_tls=settings.SMTP_USE_TLS,
         from_email=settings.SMTP_FROM_EMAIL,
-        from_name=settings.SMTP_FROM_NAME
+        from_name=settings.SMTP_FROM_NAME,
+        connect_timeout=settings.SMTP_TIMEOUT,
+        socket_timeout=settings.SMTP_SOCKET_TIMEOUT
     )
 
     global email_service
