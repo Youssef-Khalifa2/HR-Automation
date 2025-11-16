@@ -208,28 +208,56 @@ app.include_router(admin.router)  # Admin configuration routes (requires admin a
 
 
 # Serve React SPA
-# Note: Build frontend first with: cd frontend && npm run build
-# Then copy frontend/dist to a location accessible by FastAPI
-# For development, use Vite dev server on port 5173
-@app.get("/{full_path:path}")
-async def serve_spa(full_path: str):
-    """Serve React SPA for all non-API routes"""
-    # Skip API routes, health checks, and approval/form routes
-    if (full_path.startswith("api/") or
-        full_path.startswith("approve/") or
-        full_path.startswith("health") or
-        full_path.startswith("static/") or
-        full_path.startswith("debug")):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Not found")
+# Frontend is built and copied to frontend/dist during Docker build
+import pathlib
+from fastapi.responses import FileResponse
 
-    # In production, serve from frontend/dist
-    # For now, return a message to use Vite dev server
-    return {
-        "message": "React SPA is served via Vite dev server during development",
-        "dev_server": "http://localhost:5173",
-        "note": "In production, serve from frontend/dist"
-    }
+# Check if frontend/dist exists
+FRONTEND_DIST = pathlib.Path("frontend/dist")
+FRONTEND_INDEX = FRONTEND_DIST / "index.html"
+
+if FRONTEND_DIST.exists() and FRONTEND_INDEX.exists():
+    # Mount the frontend dist directory for static assets
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="frontend-assets")
+    print(f"[STARTUP] Frontend assets mounted from {FRONTEND_DIST / 'assets'}")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve React SPA for all non-API routes"""
+        # Skip API routes, health checks, and approval/form routes
+        if (full_path.startswith("api/") or
+            full_path.startswith("approve/") or
+            full_path.startswith("health") or
+            full_path.startswith("static/") or
+            full_path.startswith("assets/") or
+            full_path.startswith("debug")):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # Serve index.html for all other routes (React Router will handle routing)
+        return FileResponse(str(FRONTEND_INDEX))
+
+    print("[STARTUP] React SPA serving enabled from frontend/dist")
+else:
+    print("[STARTUP] Frontend build not found - API-only mode")
+    print("[STARTUP] For development, use: cd frontend && npm run dev")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa_dev(full_path: str):
+        """Development mode - frontend served separately"""
+        if (full_path.startswith("api/") or
+            full_path.startswith("approve/") or
+            full_path.startswith("health") or
+            full_path.startswith("static/") or
+            full_path.startswith("debug")):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Not found")
+
+        return {
+            "message": "Frontend not built - use Vite dev server for development",
+            "dev_server": "http://localhost:5173",
+            "build_command": "cd frontend && npm run build"
+        }
 
 
 @app.get("/health")

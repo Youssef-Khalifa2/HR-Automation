@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import api from '../lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -35,8 +36,8 @@ const PublicSubmissionPage = () => {
     const fetchMappings = async () => {
       try {
         const [leadersRes, chmsRes] = await Promise.all([
-          axios.get('http://localhost:8000/api/mapping/leaders'),
-          axios.get('http://localhost:8000/api/mapping/chms'),
+          api.get('/api/mapping/leaders'),
+          api.get('/api/mapping/chms'),
         ]);
         setLeaders(leadersRes.data.leaders);
         setChms(chmsRes.data.chms);
@@ -60,7 +61,7 @@ const PublicSubmissionPage = () => {
       }
 
       // Submit to public API
-      await axios.post('http://localhost:8000/api/public/submission', {
+      await api.post('/api/public/submission', {
         ...formData,
         submission_date: `${formData.submission_date}T00:00:00`,
         last_working_day: `${formData.last_working_day}T00:00:00`,
