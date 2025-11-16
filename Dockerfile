@@ -35,6 +35,10 @@ COPY --from=backend-builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY . .
 
+# Create required directories if they don't exist
+RUN mkdir -p static templates app/templates && \
+    chmod -R 755 static templates app/templates
+
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
@@ -45,9 +49,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/api/public/health')" || exit 1
-
-# Start command (can be overridden by Railway)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start command - use Railway's PORT environment variable
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

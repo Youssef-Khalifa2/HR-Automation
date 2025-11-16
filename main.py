@@ -42,6 +42,20 @@ async def lifespan(app: FastAPI):
     print("[STARTUP] Starting HR Co-Pilot...")
     print(f"[STARTUP] Database engine initialized: {engine.url}")
 
+    # Create database tables
+    db_start = time.time()
+    try:
+        print("[STARTUP] Creating database tables if they don't exist...")
+        Base.metadata.create_all(bind=engine)
+        db_time = time.time() - db_start
+        print(f"[STARTUP] [OK] Database tables verified in {db_time:.3f}s")
+    except Exception as e:
+        db_time = time.time() - db_start
+        print(f"[STARTUP] [ERROR] Database table creation failed after {db_time:.3f}s: {e}")
+        print("[STARTUP] Application will continue but database operations may fail")
+        import traceback
+        traceback.print_exc()
+
     # Initialize services
     global approval_token_service, email_service
 
@@ -86,10 +100,8 @@ async def lifespan(app: FastAPI):
     print("[SHUTDOWN] Shutdown complete")
 
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
 # Initialize FastAPI app
+# Note: Database tables are created in the lifespan startup event
 app = FastAPI(
     title="HR Co-Pilot",
     description="HR offboarding automation platform",
@@ -98,20 +110,37 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+# Get allowed origins from environment or use defaults
+from config import settings
+allowed_origins = [
+    "http://localhost:5173",  # Frontend dev server
+    "http://localhost:3000",  # Alternative frontend port
+]
+# Add production URL if in production
+if settings.ENVIRONMENT == "production" and settings.APP_BASE_URL:
+    allowed_origins.append(settings.APP_BASE_URL)
+    print(f"[STARTUP] CORS: Added production origin: {settings.APP_BASE_URL}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Frontend dev server
-        "http://localhost:3000",  # Alternative frontend port
-    ],
+    allow_origins=allowed_origins if settings.ENVIRONMENT != "production" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Mount static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+# Mount static files and templates (only if directories exist)
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    print("[STARTUP] Static files mounted from ./static")
+else:
+    print("[STARTUP] Static directory not found - skipping static files mount")
+
+if os.path.exists("templates"):
+    templates = Jinja2Templates(directory="templates")
+    print("[STARTUP] Templates loaded from ./templates")
+else:
+    print("[STARTUP] Templates directory not found - skipping template loading")
 
 # Include API routers
 app.include_router(auth.router, prefix="/api")
