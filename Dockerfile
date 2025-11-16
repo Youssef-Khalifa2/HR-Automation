@@ -14,6 +14,16 @@ RUN npm ci
 # Copy frontend source
 COPY frontend/ ./
 
+# Debug: List the copied files
+RUN echo "=== Checking frontend directory structure ===" && \
+    ls -la && \
+    echo "=== Checking src directory ===" && \
+    ls -la src/ && \
+    echo "=== Checking src/lib directory ===" && \
+    ls -la src/lib/ || echo "src/lib not found" && \
+    echo "=== Checking src/pages directory ===" && \
+    ls -la src/pages/ || echo "src/pages not found"
+
 # Build frontend for production (skip type checking for faster builds)
 RUN npm run build:prod
 
