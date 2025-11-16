@@ -13,7 +13,7 @@ from app.services.submission_validator import get_submission_validator
 from app.core.security import get_approval_token_service
 from config import BASE_URL
 
-router = APIRouter(prefix="/api", tags=["public"])
+router = APIRouter(prefix="/api/public", tags=["public"])
 
 
 @router.post("/submission", response_model=SubmissionResponse)

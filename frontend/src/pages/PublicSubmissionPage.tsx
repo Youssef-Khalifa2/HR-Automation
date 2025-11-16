@@ -60,7 +60,7 @@ const PublicSubmissionPage = () => {
       }
 
       // Submit to public API
-      await axios.post('http://localhost:8000/api/submission', {
+      await axios.post('http://localhost:8000/api/public/submission', {
         ...formData,
         submission_date: `${formData.submission_date}T00:00:00`,
         last_working_day: `${formData.last_working_day}T00:00:00`,
