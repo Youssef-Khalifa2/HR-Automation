@@ -2,329 +2,305 @@
 
 Complete guide for deploying the HR Automation System to production.
 
+## Quick Start
+
+**For Railway (Recommended):** See **[RAILWAY_SETUP_GUIDE.md](RAILWAY_SETUP_GUIDE.md)** for detailed step-by-step instructions with screenshots and explanations.
+
+**For Docker:** See [Docker Deployment](#docker-deployment) below.
+
+---
+
 ## Table of Contents
-- [Prerequisites](#prerequisites)
-- [Option 1: Railway Deployment](#option-1-railway-deployment-recommended)
-- [Option 2: Docker Deployment](#option-2-docker-deployment)
+- [Railway Deployment](#railway-deployment-recommended)
+- [Docker Deployment](#docker-deployment)
 - [Database Migration](#database-migration)
 - [Environment Variables](#environment-variables)
 - [Post-Deployment](#post-deployment)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## Prerequisites
+## Railway Deployment (Recommended)
 
-### Required
-- PostgreSQL database (Railway provides this automatically)
-- SendGrid API key OR SMTP credentials
-- Node.js 18+ (for local development)
-- Python 3.11+ (for local development)
+### Why Railway?
+- ✅ **Automatic URL detection** - No need to configure APP_BASE_URL
+- ✅ **PostgreSQL included** - Database provided and configured automatically
+- ✅ **Easy setup** - Deploy in minutes
+- ✅ **Auto HTTPS** - SSL certificates included
+- ✅ **Automatic backups** - Database backups included
 
-### Optional
-- Docker & Docker Compose (for containerized deployment)
-- Railway CLI (for Railway deployment)
+### Quick Setup
+
+1. **Deploy to Railway:**
+   ```bash
+   git push origin main
+   ```
+   - Go to [Railway.app](https://railway.app)
+   - Click "New Project" → "Deploy from GitHub"
+   - Select "HR-Automation" repository
+
+2. **Add PostgreSQL:**
+   - Click "New" → "Database" → "PostgreSQL"
+   - DATABASE_URL is automatically linked
+
+3. **Set Environment Variables:**
+   ```bash
+   # Required (Set in Railway dashboard)
+   SECRET_KEY=<generate-with-python>
+   SIGNING_SECRET=<generate-with-python>
+   EMAIL_PROVIDER=sendgrid
+   SENDGRID_API_KEY=<your-key>
+   SMTP_FROM_EMAIL=noreply@company.com
+   HR_EMAIL=hr@company.com
+   IT_EMAIL=it@company.com
+   ```
+
+4. **Optional Variables:**
+   ```bash
+   HR_EMAIL_CC=manager@company.com,supervisor@company.com
+   SMTP_FROM_NAME=HR Automation System
+   ENABLE_AUTO_REMINDERS=true
+   ```
+
+**📖 Detailed Instructions:** See **[RAILWAY_SETUP_GUIDE.md](RAILWAY_SETUP_GUIDE.md)** for complete walkthrough.
+
+### Generate Secret Keys
+
+```bash
+# SECRET_KEY
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# SIGNING_SECRET
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+### Variables Railway Provides Automatically
+
+You **DO NOT** need to set these (auto-detected):
+- ❌ `APP_BASE_URL` - Auto-detected from Railway domain
+- ❌ `FRONTEND_URL` - Auto-detected from Railway domain
+- ❌ `DATABASE_URL` - Provided by Railway PostgreSQL
+- ❌ `PORT` - Provided by Railway
 
 ---
 
-## Option 1: Railway Deployment (Recommended)
+## Docker Deployment
 
-### Step 1: Prepare Your Code
-```bash
-# Ensure all files are committed
-git add .
-git commit -m "Prepare for deployment"
-```
+### Using Docker Compose
 
-### Step 2: Create Railway Project
-1. Go to [Railway.app](https://railway.app)
-2. Click "New Project"
-3. Select "Deploy from GitHub repo"
-4. Choose your repository
-
-### Step 3: Add PostgreSQL Database
-1. In your Railway project, click "New"
-2. Select "Database" → "PostgreSQL"
-3. Railway will create a database and provide connection string
-
-### Step 4: Configure Environment Variables
-In Railway dashboard, add these variables to your service:
-
-#### Required Variables
-```bash
-# Database (automatically set by Railway if using their PostgreSQL)
-DATABASE_URL=<your-railway-postgres-url>
-
-# Security (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
-SECRET_KEY=<your-secret-key>
-SIGNING_SECRET=<your-signing-secret>
-
-# Application URLs
-APP_BASE_URL=https://your-app.railway.app
-FRONTEND_URL=https://your-frontend-url.com
-
-# Email Provider
-EMAIL_PROVIDER=sendgrid
-SENDGRID_API_KEY=<your-sendgrid-api-key>
-
-# Email Recipients
-HR_EMAIL=hr@your-company.com
-HR_EMAIL_CC=manager@your-company.com,supervisor@your-company.com
-IT_EMAIL=it@your-company.com
-
-# SMTP From Address (for SendGrid)
-SMTP_FROM_EMAIL=noreply@your-company.com
-SMTP_FROM_NAME=HR Automation System
-```
-
-#### Optional Variables (if using SMTP instead of SendGrid)
-```bash
-EMAIL_PROVIDER=smtp
-SMTP_HOST=smtp.your-provider.com
-SMTP_PORT=465
-SMTP_USER=your-smtp-username
-SMTP_PASS=your-smtp-password
-```
-
-### Step 5: Deploy
-Railway will automatically:
-1. Detect the `Dockerfile`
-2. Build your application
-3. Deploy it
-4. Assign a public URL
-
-### Step 6: Migrate Database
-After first deployment, migrate your local database to Railway:
-
-```bash
-# Install required dependencies
-pip install sqlalchemy psycopg2-binary
-
-# Run migration
-python migrate_database.py \
-  --source "postgresql://postgres:123@localhost:5432/appdb" \
-  --target "postgresql://user:pass@containers-us-west-xxx.railway.app:5432/railway"
-```
-
-### Step 7: Create Admin User
-SSH into Railway container or use Railway's console:
-```bash
-python -c "from app.auth import create_user; from app.database import SessionLocal; db = SessionLocal(); create_user(db, 'hr@company.com', 'your-password', 'HR Admin', 'admin'); db.close()"
-```
-
----
-
-## Option 2: Docker Deployment
-
-### Step 1: Set Up Environment
-Create `.env` file in project root:
+**1. Create `.env` file:**
 ```bash
 DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/appdb
-SECRET_KEY=your-secret-key-here
-SIGNING_SECRET=your-signing-secret-here
-APP_BASE_URL=http://localhost:8000
-FRONTEND_URL=http://localhost:5173
+SECRET_KEY=<generated-key>
+SIGNING_SECRET=<generated-key>
 EMAIL_PROVIDER=sendgrid
-SENDGRID_API_KEY=your-sendgrid-api-key
-HR_EMAIL=hr@company.com
-HR_EMAIL_CC=manager@company.com
-IT_EMAIL=it@company.com
+SENDGRID_API_KEY=<your-key>
 SMTP_FROM_EMAIL=noreply@company.com
+HR_EMAIL=hr@company.com
+IT_EMAIL=it@company.com
 ```
 
-### Step 2: Build and Run
+**2. Start services:**
 ```bash
-# Build and start all services
 docker-compose up -d
-
-# Check logs
-docker-compose logs -f backend
-
-# Stop services
-docker-compose down
 ```
 
-### Step 3: Access Application
+**3. Access application:**
 - Backend API: http://localhost:8000
 - Frontend: http://localhost:3000
 - API Docs: http://localhost:8000/docs
+
+**4. View logs:**
+```bash
+docker-compose logs -f backend
+```
+
+**5. Stop services:**
+```bash
+docker-compose down
+```
+
+### Using Docker Only
+
+**Build:**
+```bash
+docker build -t hr-automation .
+```
+
+**Run:**
+```bash
+docker run -d \
+  -p 8000:8000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e SECRET_KEY="..." \
+  -e SIGNING_SECRET="..." \
+  -e EMAIL_PROVIDER="sendgrid" \
+  -e SENDGRID_API_KEY="..." \
+  -e SMTP_FROM_EMAIL="noreply@company.com" \
+  -e HR_EMAIL="hr@company.com" \
+  -e IT_EMAIL="it@company.com" \
+  hr-automation
+```
 
 ---
 
 ## Database Migration
 
-### Migrate from Local to Production
+### Migrate Local to Production
 
+**Prerequisites:**
 ```bash
-# Install dependencies
 pip install sqlalchemy psycopg2-binary
-
-# Run migration script
-python migrate_database.py \
-  --source "postgresql://user:pass@localhost:5432/local_db" \
-  --target "postgresql://user:pass@prod-host:5432/prod_db" \
-  --batch-size 1000
 ```
 
-### What Gets Migrated
+**Run Migration:**
+```bash
+python migrate_database.py \
+  --source "postgresql://postgres:123@localhost:5432/appdb" \
+  --target "<railway-database-url>"
+```
+
+**Get Railway Database URL:**
+1. Go to Railway dashboard
+2. Click PostgreSQL service
+3. Go to "Variables" tab
+4. Copy `DATABASE_URL` value
+
+**What Gets Migrated:**
 - ✅ All table schemas
-- ✅ All data (in batches)
+- ✅ All data (users, submissions, assets, etc.)
 - ✅ Foreign key relationships
-- ✅ Indexes
+- ✅ Indexes and constraints
 - ✅ Sequences (auto-increment IDs)
 
-### Migration Safety
-- Script asks for confirmation before proceeding
-- Reads from source (no modifications)
-- Verifies data integrity after migration
-- Shows progress for each table
+**Migration Process:**
+1. Connects to both databases
+2. Copies schema to target
+3. Migrates data in batches (1000 rows)
+4. Updates sequences
+5. Verifies data integrity
+6. Shows summary
 
 ---
 
 ## Environment Variables
 
-### Security Variables
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SECRET_KEY` | JWT token encryption | `<random-32-char-string>` |
-| `SIGNING_SECRET` | API request signing | `<random-32-char-string>` |
+### Required Variables
 
-### Database
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` |
-
-### Application URLs
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `APP_BASE_URL` | Backend API URL | `https://api.your-app.com` |
-| `FRONTEND_URL` | Frontend application URL | `https://your-app.com` |
-
-### Email Configuration
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `EMAIL_PROVIDER` | Email provider (sendgrid/smtp) | `sendgrid` |
-| `SENDGRID_API_KEY` | SendGrid API key | `SG.xxx` |
-| `SMTP_HOST` | SMTP server hostname | `smtp.gmail.com` |
-| `SMTP_PORT` | SMTP server port | `465` |
-| `SMTP_USER` | SMTP username | `user@company.com` |
-| `SMTP_PASS` | SMTP password | `password` |
-| `SMTP_FROM_EMAIL` | Sender email address | `noreply@company.com` |
-| `SMTP_FROM_NAME` | Sender name | `HR Automation` |
-
-### Email Recipients
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `HR_EMAIL` | Primary HR email | `hr@company.com` |
-| `HR_EMAIL_CC` | CC recipients (comma-separated) | `mgr@company.com,super@company.com` |
+| `SECRET_KEY` | JWT token encryption | `<32-char-random>` |
+| `SIGNING_SECRET` | API signing key | `<32-char-random>` |
+| `EMAIL_PROVIDER` | Email service | `sendgrid` or `smtp` |
+| `SENDGRID_API_KEY` | SendGrid API key | `SG.xxx...` |
+| `SMTP_FROM_EMAIL` | Sender email | `noreply@company.com` |
+| `HR_EMAIL` | HR department email | `hr@company.com` |
 | `IT_EMAIL` | IT department email | `it@company.com` |
 
-### Optional Settings
-| Variable | Description | Default |
+### Optional Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HR_EMAIL_CC` | `""` | CC recipients (comma-separated) |
+| `SMTP_FROM_NAME` | `HR Automation System` | Email sender name |
+| `ENABLE_AUTO_REMINDERS` | `true` | Enable automated reminders |
+| `REMINDER_THRESHOLD_HOURS` | `24` | Hours before reminder |
+
+### SMTP Configuration (if not using SendGrid)
+
+| Variable | Description | Example |
 |----------|-------------|---------|
-| `ENABLE_AUTO_REMINDERS` | Enable automated reminders | `true` |
-| `REMINDER_THRESHOLD_HOURS` | Hours before sending reminders | `24` |
-| `ENVIRONMENT` | Environment name | `production` |
-| `PORT` | Server port | `8000` |
+| `EMAIL_PROVIDER` | Set to smtp | `smtp` |
+| `SMTP_HOST` | SMTP server | `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP port | `465` or `587` |
+| `SMTP_USER` | SMTP username | `user@company.com` |
+| `SMTP_PASS` | SMTP password | `password` |
+
+### Auto-Detected Variables (Railway Only)
+
+These are automatically configured:
+
+| Variable | Source | Description |
+|----------|--------|-------------|
+| `APP_BASE_URL` | Auto-detected | Application URL |
+| `FRONTEND_URL` | Auto-detected | Frontend URL |
+| `DATABASE_URL` | Railway PostgreSQL | Database connection |
+| `PORT` | Railway | Server port |
+| `RAILWAY_ENVIRONMENT` | Railway | Environment name |
 
 ---
 
 ## Post-Deployment
 
-### 1. Create Admin User
+### 1. Verify Deployment
+
+**Check health endpoint:**
 ```bash
-# Via Railway console or SSH
-python create_admin_user.py
+curl https://your-app.up.railway.app/api/public/health
 ```
 
-### 2. Configure System Settings
-1. Log in to admin panel: `https://your-app.com/admin`
-2. Navigate to "Configuration" tab
-3. Update:
-   - Email settings
-   - Vendor email addresses
-   - HR/IT email addresses
-   - HR Email CC recipients
+**Expected response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-..."
+}
+```
 
-### 3. Test Email Delivery
-1. Create a test resignation submission
-2. Verify emails are received
-3. Check email logs in database
+### 2. Create Admin User
+
+**Using Railway CLI:**
+```bash
+railway run python -c "from app.auth import create_user; from app.database import SessionLocal; db = SessionLocal(); create_user(db, 'hr@company.com', 'YourPassword123', 'HR Admin', 'admin'); print('Admin created!'); db.close()"
+```
+
+**Or create script `create_admin.py`:**
+```python
+from app.auth import create_user
+from app.database import SessionLocal
+
+db = SessionLocal()
+try:
+    create_user(db, "hr@company.com", "YourPassword", "HR Admin", "admin")
+    print("✅ Admin user created!")
+except Exception as e:
+    print(f"❌ Error: {e}")
+finally:
+    db.close()
+```
+
+### 3. Configure Application
+
+1. **Login to Admin Panel:**
+   - Go to `https://your-app.up.railway.app`
+   - Login with admin credentials
+   - Navigate to "Admin" tab
+
+2. **Configure Settings:**
+   - Update email configuration
+   - Set vendor email addresses
+   - Configure team mappings
+
+3. **Test Email Delivery:**
+   - Create test submission
+   - Verify emails are sent
 
 ### 4. Set Up Team Mappings
+
 1. Go to "Team Mapping" tab
-2. Add all department mappings:
+2. Add departments:
    - Department name
    - Team leader email
    - CHM email (if applicable)
-   - Vendor selection
-
-### 5. Monitor Application
-- Check Railway logs for errors
-- Monitor email delivery
-- Test approval workflows
-- Verify exit interview process
+   - Vendor preference
 
 ---
 
 ## Troubleshooting
 
-### Database Connection Issues
-```bash
-# Test database connection
-python -c "from app.database import engine; engine.connect(); print('✓ Connected')"
-```
+### Deployment Fails
 
-### Email Not Sending
-1. Check SendGrid API key is valid
-2. Verify sender email is verified in SendGrid
-3. Check email logs: `SELECT * FROM email_logs ORDER BY created_at DESC LIMIT 10;`
-4. Review Railway logs for error messages
-
-### 500 Internal Server Error
-1. Check Railway logs
-2. Verify all environment variables are set
-3. Ensure database is accessible
-4. Check for Python dependency issues
-
-### Migration Failed
-1. Verify both source and target databases are accessible
-2. Check credentials in connection strings
-3. Ensure target database is empty or confirm overwrite
-4. Review migration logs for specific table errors
-
----
-
-## Security Checklist
-
-- [ ] Change default SECRET_KEY and SIGNING_SECRET
-- [ ] Use strong database passwords
-- [ ] Enable HTTPS (Railway provides this automatically)
-- [ ] Restrict database access to application only
-- [ ] Keep SendGrid API key secure
-- [ ] Regularly update dependencies
-- [ ] Monitor access logs
-- [ ] Set up database backups (Railway provides automated backups)
-
----
-
-## Support
-
-For issues or questions:
-1. Check Railway logs
-2. Review application logs in database
-3. Consult this deployment guide
-4. Check Railway documentation: https://docs.railway.app
-
----
-
-## Quick Reference
-
-### Generate Secret Keys
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
-
-### View Logs
+**Check Logs:**
 ```bash
 # Railway
 railway logs
@@ -333,18 +309,133 @@ railway logs
 docker-compose logs -f backend
 ```
 
-### Database Backup
+**Common Issues:**
+- Missing environment variables
+- Database connection error
+- Invalid SECRET_KEY/SIGNING_SECRET
+
+### Health Check Fails
+
+**Symptoms:**
+- Railway shows "Unhealthy"
+- Application not starting
+
+**Solutions:**
+1. Check DATABASE_URL is set
+2. Verify all required env vars
+3. Review deploy logs for errors
+
+### Database Connection Error
+
+**Error:** `could not connect to database`
+
+**Solutions:**
+1. Verify DATABASE_URL format:
+   ```
+   postgresql://user:pass@host:port/dbname
+   ```
+2. Ensure PostgreSQL service is running
+3. Check database is linked to app
+
+### Email Not Sending
+
+**Check:**
+1. SENDGRID_API_KEY is valid
+2. Sender email is verified
+3. HR_EMAIL is set correctly
+4. Email logs in database:
+   ```sql
+   SELECT * FROM email_logs ORDER BY created_at DESC LIMIT 10;
+   ```
+
+### Cannot Login
+
+**Solutions:**
+1. Verify admin user was created
+2. Check password is correct
+3. Ensure database migration completed
+4. Recreate admin user
+
+### URLs Not Working
+
+**If using Railway:**
+- App auto-detects Railway domain
+- No need to set APP_BASE_URL
+- Check Railway logs for "Base URL: https://..."
+
+**If URLs are wrong:**
+1. Check environment variables
+2. Restart application
+3. Verify Railway domain is generated
+
+---
+
+## Quick Reference
+
+### Minimal Required Variables (Railway)
+
 ```bash
-# Railway (automatic backups enabled)
-# Manual backup:
+SECRET_KEY=<generated>
+SIGNING_SECRET=<generated>
+EMAIL_PROVIDER=sendgrid
+SENDGRID_API_KEY=<key>
+SMTP_FROM_EMAIL=noreply@company.com
+HR_EMAIL=hr@company.com
+IT_EMAIL=it@company.com
+```
+
+### Health Check Endpoint
+
+```bash
+GET /api/public/health
+```
+
+### API Documentation
+
+```bash
+GET /docs          # Swagger UI
+GET /redoc         # ReDoc
+```
+
+### Database Backup
+
+**Railway:**
+- Automatic backups enabled
+- Access via Railway dashboard
+
+**Manual backup:**
+```bash
 pg_dump $DATABASE_URL > backup.sql
 ```
 
-### Restart Application
-```bash
-# Railway - via dashboard or CLI
-railway restart
+---
 
-# Docker
-docker-compose restart backend
-```
+## Support
+
+**Documentation:**
+- [Railway Setup Guide](RAILWAY_SETUP_GUIDE.md) - Detailed Railway instructions
+- [Railway Docs](https://docs.railway.app)
+- [Docker Documentation](https://docs.docker.com)
+
+**Application:**
+- API Docs: `/docs`
+- Health Check: `/api/public/health`
+
+---
+
+## Security Checklist
+
+- [ ] Generated strong SECRET_KEY and SIGNING_SECRET
+- [ ] Changed default passwords
+- [ ] HTTPS enabled (automatic on Railway)
+- [ ] Database password is strong
+- [ ] SendGrid API key is secure
+- [ ] Environment variables not committed to git
+- [ ] Admin user created with strong password
+- [ ] Regular backups configured
+
+---
+
+**Your application is ready for production!** 🚀
+
+For detailed Railway setup, see **[RAILWAY_SETUP_GUIDE.md](RAILWAY_SETUP_GUIDE.md)**

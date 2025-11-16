@@ -7,16 +7,47 @@ from pydantic_settings import BaseSettings
 load_dotenv()
 
 
+def get_base_url() -> str:
+    """Auto-detect base URL from Railway or environment"""
+    # Check for explicit configuration first
+    if os.getenv("APP_BASE_URL"):
+        return os.getenv("APP_BASE_URL")
+
+    # Auto-detect Railway deployment
+    railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN")
+    if railway_domain:
+        return f"https://{railway_domain}"
+
+    railway_static = os.getenv("RAILWAY_STATIC_URL")
+    if railway_static:
+        return railway_static
+
+    # Default to localhost for development
+    port = os.getenv("PORT", "8000")
+    return f"http://localhost:{port}"
+
+
+def get_frontend_url() -> str:
+    """Auto-detect frontend URL"""
+    # Check for explicit configuration first
+    if os.getenv("FRONTEND_URL"):
+        return os.getenv("FRONTEND_URL")
+
+    # For Railway, frontend might be same as backend or separate deployment
+    # If not specified, use the base URL (same domain)
+    return get_base_url()
+
+
 class Settings(BaseSettings):
     """Unified configuration for HR Co-Pilot application"""
 
     # Application Settings
-    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "http://localhost:8000")
-    SIGNING_SECRET: str = os.getenv("SIGNING_SECRET", "")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    DEBUG: bool = False
-    ENVIRONMENT: str = "development"
+    APP_BASE_URL: str = get_base_url()
+    SIGNING_SECRET: str = os.getenv("SIGNING_SECRET", "dev-signing-secret-change-in-production")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", os.getenv("RAILWAY_ENVIRONMENT", "development"))
 
     # Timeout Configurations
     HTTP_TIMEOUT: float = 30.0
@@ -25,7 +56,7 @@ class Settings(BaseSettings):
     DATABASE_TIMEOUT: int = 30
     APPROVAL_PAGE_TIMEOUT: float = 15.0
 
-    # Database Configuration
+    # Database Configuration (Railway provides this automatically)
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:123@localhost:5432/appdb")
 
     # Email Configuration
@@ -43,17 +74,17 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "True").lower() == "true"
 
     # Email Recipients Configuration
-    HR_EMAIL: str = os.getenv("HR_EMAIL", "youssefkhalifa@51talk.com")
+    HR_EMAIL: str = os.getenv("HR_EMAIL", "hr@company.com")
     HR_EMAIL_CC: str = os.getenv("HR_EMAIL_CC", "")  # Comma-separated CC emails for HR notifications
-    IT_EMAIL: str = os.getenv("IT_EMAIL", "youssefkhalifa@51talk.com")
-    IT_SUPPORT_EMAIL: str = os.getenv("IT_EMAIL", "youssefkhalifa@51talk.com")
+    IT_EMAIL: str = os.getenv("IT_EMAIL", "it@company.com")
+    IT_SUPPORT_EMAIL: str = os.getenv("IT_EMAIL", "it@company.com")
 
-    # Frontend Configuration
-    FRONTEND_URL: str = "http://localhost:5173"  # Frontend URL for approval links
+    # Frontend Configuration (auto-detected)
+    FRONTEND_URL: str = get_frontend_url()
 
     # Reminder System Configuration
-    ENABLE_AUTO_REMINDERS: bool = True  # Enable/disable automated reminder system
-    REMINDER_THRESHOLD_HOURS: int = 24  # Hours before sending first reminder
+    ENABLE_AUTO_REMINDERS: bool = os.getenv("ENABLE_AUTO_REMINDERS", "True").lower() == "true"
+    REMINDER_THRESHOLD_HOURS: int = int(os.getenv("REMINDER_THRESHOLD_HOURS", "24"))
     REMINDER_CHECK_INTERVAL_MINUTES: int = 60  # How often to check for pending items (for cron)
 
     # IMAP Configuration (future use)
@@ -89,18 +120,17 @@ SMTP_USE_TLS = settings.SMTP_USE_TLS
 IMAP_HOST = settings.IMAP_HOST or "imap.qiye.aliyun.com"
 IMAP_PORT = settings.IMAP_PORT or 993
 
-# Development overrides
-if os.getenv("SMTP_HOST"):
-    SMTP_HOST = os.getenv("SMTP_HOST")
-if os.getenv("SMTP_PORT"):
-    SMTP_PORT = int(os.getenv("SMTP_PORT"))
-if os.getenv("SMTP_EMAIL"):
-    EMAIL = os.getenv("SMTP_EMAIL")
-if os.getenv("SMTP_PASSWORD"):
-    PASSWORD = os.getenv("SMTP_PASSWORD")
-if os.getenv("SMTP_FROM_EMAIL"):
-    SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL")
-if os.getenv("SMTP_FROM_NAME"):
-    SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME")
-if os.getenv("SMTP_USE_TLS"):
-    SMTP_USE_TLS = os.getenv("SMTP_USE_TLS").lower() == "true"
+# Print configuration on startup (helpful for debugging Railway deployments)
+if __name__ == "__main__" or os.getenv("RAILWAY_ENVIRONMENT"):
+    print("=" * 60)
+    print("HR Automation System - Configuration")
+    print("=" * 60)
+    print(f"Environment: {settings.ENVIRONMENT}")
+    print(f"Base URL: {settings.APP_BASE_URL}")
+    print(f"Frontend URL: {settings.FRONTEND_URL}")
+    print(f"Database: {settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else 'Not configured'}")
+    print(f"Email Provider: {settings.EMAIL_PROVIDER}")
+    print(f"HR Email: {settings.HR_EMAIL}")
+    if settings.HR_EMAIL_CC:
+        print(f"HR Email CC: {settings.HR_EMAIL_CC}")
+    print("=" * 60)
