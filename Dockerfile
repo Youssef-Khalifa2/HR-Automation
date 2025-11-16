@@ -14,8 +14,8 @@ RUN npm ci
 # Copy frontend source
 COPY frontend/ ./
 
-# Build frontend for production
-RUN npm run build
+# Build frontend for production (skip type checking for faster builds)
+RUN npm run build:prod
 
 # Stage 2: Build Python backend dependencies
 FROM python:3.11-slim as backend-builder
