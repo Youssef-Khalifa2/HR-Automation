@@ -49,5 +49,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Start command - use Railway's PORT environment variable
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start command - run environment check then start server
+CMD ["sh", "-c", "python startup_check.py && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

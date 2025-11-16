@@ -1,4 +1,5 @@
 """HR Co-Pilot FastAPI Application"""
+print("[INIT] Importing FastAPI modules...")
 from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -9,14 +10,22 @@ import time
 import logging
 from contextlib import asynccontextmanager
 
+print("[INIT] Importing database...")
 from app.database import engine, Base
+print("[INIT] Database import successful")
+print("[INIT] Importing API routers...")
 from app.api import auth, submissions, users, public, approvals, mapping, forms, assets, reminders, email_monitoring, admin
+print("[INIT] Importing schemas...")
 from app.schemas_all import *  # Import all schemas from consolidated file
+print("[INIT] Importing models...")
 # Import all models to ensure they are registered with SQLAlchemy
 from app.models import user, submission, asset, exit_interview, config
+print("[INIT] Importing security services...")
 from app.core.security import ApprovalTokenService
 from app.services.email import create_email_service
+print("[INIT] Importing config...")
 from config import SIGNING_SECRET
+print("[INIT] All imports successful!")
 
 # Configure logging with UTF-8 encoding
 console_handler = logging.StreamHandler()
@@ -39,8 +48,13 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
     startup_start = time.time()
+    print("=" * 80)
     print("[STARTUP] Starting HR Co-Pilot...")
-    print(f"[STARTUP] Database engine initialized: {engine.url}")
+    print(f"[STARTUP] Environment: {settings.ENVIRONMENT}")
+    print(f"[STARTUP] App Base URL: {settings.APP_BASE_URL}")
+    print(f"[STARTUP] Database URL: {engine.url}")
+    print(f"[STARTUP] PORT: {os.getenv('PORT', '8000')}")
+    print("=" * 80)
 
     # Create database tables
     db_start = time.time()
