@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas_all import UserCreate, UserResponse
 from app.crud import get_user, get_user_by_email, get_users, create_user
-from app.auth import get_current_hr_user
+from app.auth import get_current_user
 from app.models.user import User
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 def create_user_endpoint(
     user: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Create new user (HR only)"""
     # Check if user already exists
@@ -31,7 +31,7 @@ def list_users(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ):
     """List users (HR only)"""
     users = get_users(db, skip=skip, limit=limit)
@@ -39,7 +39,7 @@ def list_users(
 
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user_info(current_user: User = Depends(get_current_hr_user)):
+def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
     return current_user
 
@@ -48,7 +48,7 @@ def get_current_user_info(current_user: User = Depends(get_current_hr_user)):
 def get_user_endpoint(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get user by ID (HR only)"""
     user = get_user(db, user_id)

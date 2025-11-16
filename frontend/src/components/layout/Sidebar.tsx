@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Package, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Package, LogOut, Settings } from 'lucide-react';
 import { useLogout } from '../../hooks/useAuth';
+import { useAuthStore } from '../../stores/authStore';
 import { cn } from '../../lib/utils';
 
 const navigation = [
@@ -10,8 +11,13 @@ const navigation = [
   { name: 'Assets', href: '/assets', icon: Package },
 ];
 
+const adminNavigation = [
+  { name: 'Admin', href: '/admin', icon: Settings, adminOnly: true },
+];
+
 export function Sidebar() {
   const logout = useLogout();
+  const { user } = useAuthStore();
 
   return (
     <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
@@ -39,6 +45,30 @@ export function Sidebar() {
             {item.name}
           </NavLink>
         ))}
+
+        {/* Admin Navigation - Only visible to admin users */}
+        {user?.role === 'admin' && (
+          <>
+            <div className="border-t border-gray-800 my-2"></div>
+            {adminNavigation.map((item) => (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-gray-800 text-white'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  )
+                }
+              >
+                <item.icon className="h-5 w-5" />
+                {item.name}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       {/* Logout */}

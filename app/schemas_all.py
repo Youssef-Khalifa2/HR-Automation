@@ -38,13 +38,20 @@ class TokenData(BaseModel):
 class SubmissionBase(BaseModel):
     employee_name: str
     employee_email: EmailStr
-    joining_date: datetime  # Called hire_date in our original design
+    joining_date: Optional[datetime] = None  # Optional field
     submission_date: datetime  # Called resignation_date in our original design
     last_working_day: datetime
 
 
 class SubmissionCreate(SubmissionBase):
-    pass
+    employee_id: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+    team_leader_email: Optional[EmailStr] = None
+    chm_email: Optional[EmailStr] = None
+    resignation_reason: Optional[str] = None  # Not stored in DB but accepted
+    notice_period_days: Optional[int] = None  # Computed, but we accept it
+    in_probation: Optional[bool] = None  # Computed, but we accept it
 
 
 class SubmissionUpdate(BaseModel):
@@ -67,6 +74,13 @@ class SubmissionUpdate(BaseModel):
 
 class SubmissionResponse(SubmissionBase):
     id: int
+    employee_id: Optional[str]
+    department: Optional[str]
+    position: Optional[str]
+    team_leader_email: Optional[str]
+    chm_email: Optional[str]
+    team_leader_name: Optional[str] = None  # Derived from email lookup
+    chm_name: Optional[str] = None  # Derived from email lookup
     resignation_status: str
     exit_interview_status: str
     team_leader_reply: Optional[bool]
@@ -142,11 +156,11 @@ class PublicSubmissionCreate(BaseModel):
     """Schema for public submission creation (no auth required)"""
     employee_name: str
     employee_email: EmailStr
-    joining_date: datetime
+    employee_id: Optional[str] = None
+    joining_date: Optional[datetime] = None
     submission_date: datetime
     last_working_day: datetime
     department: Optional[str] = None
-    position: Optional[str] = None
     leader_email: Optional[EmailStr] = None
     leader_name: Optional[str] = None
     reason: Optional[str] = None  # Reason for resignation
@@ -159,11 +173,10 @@ class FeishuWebhookData(BaseModel):
     """Schema for Feishu webhook data"""
     employee_name: str
     employee_email: EmailStr
-    joining_date: datetime
+    joining_date: Optional[datetime] = None
     submission_date: datetime
     last_working_day: datetime
     department: Optional[str] = None
-    position: Optional[str] = None
     leader_email: Optional[EmailStr] = None
     leader_name: Optional[str] = None
     reason: Optional[str] = None

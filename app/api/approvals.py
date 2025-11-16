@@ -344,81 +344,101 @@ def generate_approval_page(
 ) -> str:
     """Generate HTML approval page"""
 
-    title = "Leader Approval" if approver_type == "leader" else "CHM Approval"
-    action_text = action.title()
+    title = "Team Leader Approval" if approver_type == "leader" else "Department Head Approval"
 
     return f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-        <title>{title} - Employee Resignation</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{title} - Resignation Request</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
-            .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-            .header {{ background: #f8f9fa; padding: 20px; margin: -30px -30px 20px -30px; border-radius: 8px 8px 0 0; }}
-            .employee-info {{ background: #e9ecef; padding: 15px; margin: 15px 0; border-radius: 5px; }}
-            .form-group {{ margin: 15px 0; }}
-            .form-group label {{ display: block; margin-bottom: 5px; font-weight: bold; }}
-            .form-group textarea {{ width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 100px; }}
-            .button {{ padding: 12px 24px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 5px; }}
-            .approve {{ background: #28a745; color: white; }}
-            .reject {{ background: #dc3545; color: white; }}
-            .warning {{ background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 4px; margin: 10px 0; }}
+            body {{ font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; background-color: #f5f5f5; }}
+            .container {{ background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            h1 {{ color: #2c3e50; text-align: center; margin-bottom: 30px; }}
+            .employee-info {{ background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 30px; }}
+            .info-row {{ margin: 10px 0; }}
+            label {{ display: block; margin: 15px 0 5px; font-weight: bold; color: #555; }}
+            textarea {{ width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box; min-height: 100px; resize: vertical; }}
+            .button-group {{ text-align: center; margin-top: 30px; }}
+            button {{ padding: 12px 30px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin: 5px; font-weight: bold; }}
+            .btn-approve {{ background-color: #28a745; color: white; }}
+            .btn-approve:hover {{ background-color: #218838; }}
+            .btn-reject {{ background-color: #dc3545; color: white; }}
+            .btn-reject:hover {{ background-color: #c82333; }}
+            .btn-cancel {{ background-color: #6c757d; color: white; }}
+            .btn-cancel:hover {{ background-color: #5a6268; }}
+            .success {{ color: #27ae60; text-align: center; padding: 20px; font-size: 18px; }}
+            .error {{ color: #c0392b; text-align: center; padding: 20px; }}
+            .note {{ background-color: #fff3cd; padding: 15px; border-radius: 4px; margin: 15px 0; border-left: 4px solid #ffc107; }}
+            .footer-note {{ text-align: center; margin-top: 30px; font-size: 12px; color: #666; }}
         </style>
     </head>
     <body>
         <div class="container">
-            <div class="header">
-                <h2>{title}</h2>
-                <p>Please review the following resignation request and provide your {action_text}.</p>
-            </div>
-
+            <h1>📋 {title}</h1>
             <div class="employee-info">
-                <h3>Employee Information</h3>
-                <p><strong>Name:</strong> {submission.employee_name}</p>
-                <p><strong>Email:</strong> {submission.employee_email}</p>
-                <p><strong>Submission Date:</strong> {submission.submission_date.strftime('%B %d, %Y') if hasattr(submission.submission_date, 'strftime') else str(submission.submission_date)}</p>
-                <p><strong>Last Working Day:</strong> {submission.last_working_day.strftime('%B %d, %Y') if hasattr(submission.last_working_day, 'strftime') else str(submission.last_working_day)}</p>
+                <div class="info-row"><strong>Employee:</strong> {submission.employee_name}</div>
+                <div class="info-row"><strong>Email:</strong> {submission.employee_email}</div>
+                <div class="info-row"><strong>Submission Date:</strong> {submission.submission_date.strftime('%B %d, %Y') if hasattr(submission.submission_date, 'strftime') else str(submission.submission_date)}</div>
+                <div class="info-row"><strong>Last Working Day:</strong> {submission.last_working_day.strftime('%B %d, %Y') if hasattr(submission.last_working_day, 'strftime') else str(submission.last_working_day)}</div>
             </div>
 
-            <form method="post" action="/approve/{submission.id}">
+            <div class="note">
+                <strong>💡 Note:</strong> Notes are optional when approving, but <strong>required when rejecting</strong> a resignation request.
+            </div>
+
+            <form id="approvalForm" method="post" action="/approve/{submission.id}">
                 <input type="hidden" name="token" value="{token}">
-                <input type="hidden" name="action" value="{action}">
+                <input type="hidden" name="action" id="actionField" value="">
 
-                {'<div class="warning"><strong>Important:</strong> Notes are required when rejecting a resignation request.</div>' if action == 'reject' else ''}
+                <label>Comments/Notes:</label>
+                <textarea name="notes" id="notes" placeholder="Please provide any additional comments (required if rejecting)..."></textarea>
 
-                <div class="form-group">
-                    <label for="notes">Notes {"(optional if approving, required if rejecting)" if action == "approve" else "(required when rejecting)"}:</label>
-                    <textarea name="notes" id="notes" placeholder="Please provide any additional comments or reasons for your decision..."></textarea>
-                </div>
-
-                <div style="text-align: center; margin-top: 30px;">
-                    <button type="submit" class="button {'approve' if action == 'approve' else 'reject'}">
-                        {action_text} Resignation
+                <div class="button-group">
+                    <button type="button" class="btn-approve" onclick="submitForm('approve')">
+                        ✓ Approve
                     </button>
-                    <a href="#" onclick="window.close()" class="button" style="background: #6c757d; color: white; text-decoration: none; display: inline-block;">Cancel</a>
+                    <button type="button" class="btn-reject" onclick="submitForm('reject')">
+                        ✗ Reject
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="window.close()">
+                        Cancel
+                    </button>
                 </div>
             </form>
 
-            <p style="text-align: center; margin-top: 30px; font-size: 12px; color: #666;">
+            <div id="message"></div>
+
+            <div class="footer-note">
                 This is a secure approval link. Do not share this URL with others.<br>
                 Link expires in 24 hours. For assistance, contact HR.
-            </p>
+            </div>
         </div>
 
         <script>
-            // Validate form before submission for rejections
-            document.querySelector('form').addEventListener('submit', function(e) {{
-                var action = document.querySelector('input[name="action"]').value;
-                var notes = document.querySelector('textarea[name="notes"]').value.trim();
+            function submitForm(action) {{
+                const notes = document.getElementById('notes').value.trim();
+                const actionField = document.getElementById('actionField');
+                const messageDiv = document.getElementById('message');
 
                 if (action === 'reject' && notes === '') {{
-                    e.preventDefault();
-                    alert('Please provide notes when rejecting a resignation request.');
-                    document.querySelector('textarea[name="notes"]').focus();
+                    messageDiv.innerHTML = '<div class="error">❌ Notes are required when rejecting a resignation request.</div>';
+                    document.getElementById('notes').focus();
                     return false;
                 }}
-            }});
+
+                // Confirm action
+                const confirmMsg = action === 'approve'
+                    ? 'Are you sure you want to approve this resignation?'
+                    : 'Are you sure you want to reject this resignation?';
+
+                if (confirm(confirmMsg)) {{
+                    actionField.value = action;
+                    document.getElementById('approvalForm').submit();
+                }}
+            }}
         </script>
     </body>
     </html>
@@ -444,29 +464,15 @@ async def send_chm_approval_email(submission) -> bool:
             base_url=BASE_URL
         )
 
-        # Get leader mapping to find CHM info
-        from app.services.leader_mapping import get_leader_mapping
-        leader_mapping = get_leader_mapping()
-
-        # Try to find CHM email through leader mapping
-        chm_email = config.CHM_test_mail  # Default fallback
+        # Get CHM email directly from submission (stored during creation from CSV mapping)
+        chm_email = submission.chm_email
         chm_name = "Chinese Head"
 
-        # Look for leader info in submission or through mapping
-        leader_name = None
-        if hasattr(submission, 'leader_name') and submission.leader_name:
-            leader_name = submission.leader_name
-        else:
-            # Try to find leader through CRM or other means
-            # For now, use a default or search based on employee
-            leader_name = None
+        if not chm_email:
+            logger.error(f"❌ No CHM email found in submission {submission.id}! Cannot send CHM approval email.")
+            raise ValueError(f"No CHM email found for submission {submission.id}. Please update the submission.")
 
-        if leader_name:
-            leader_info = leader_mapping.get_leader_info(leader_name)
-            if leader_info and leader_info.get('chm_email'):
-                chm_email = leader_info['chm_email']
-                chm_name = leader_info['chm_name']
-                logger.info(f"✅ Auto-mapped CHM for leader {leader_name}: {chm_name} → {chm_email}")
+        logger.info(f"✅ Using CHM email from submission: {chm_email}")
 
         # Prepare submission data
         email_data = {
@@ -503,41 +509,31 @@ async def send_chm_approval_email(submission) -> bool:
 
 
 async def send_hr_notification(submission, message_type: str):
-    """Send interview scheduling form to HR department"""
+    """Send simple HR reminder to check platform"""
     try:
-        # Only send interview scheduling form when CHM approves
+        # Send simple platform reminder when CHM approves
         if message_type == "chm_approved":
-            from app.services.tokenized_forms import get_tokenized_form_service
-            from config import BASE_URL, HR_EMAIL
+            from config import settings
 
             email_service = get_email_service()
-            token_service = get_tokenized_form_service()
 
-            # Create token for interview scheduling
-            token = token_service.create_interview_scheduling_token(
-                submission_id=submission.id,
-                employee_email=submission.employee_email
-            )
+            # Simple platform URL - no tokenized forms
+            platform_url = f"{settings.FRONTEND_URL}"
 
-            # Create interview scheduling form URL
-            interview_url = f"{BASE_URL}/api/forms/schedule-interview?token={token}"
-
-            # Prepare email data with interview scheduling form
+            # Prepare email data for simple reminder
             email_data = {
                 "employee_name": submission.employee_name,
                 "employee_email": submission.employee_email,
                 "submission_id": submission.id,
-                "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
-                "leader_notes": submission.team_leader_notes or "",
-                "chinese_head_notes": submission.chinese_head_notes or "",
-                "interview_scheduling_url": interview_url,
-                "submission_date": submission.submission_date.strftime("%Y-%m-%d")
+                "department": getattr(submission, 'department', 'General'),
+                "position": getattr(submission, 'position', 'Employee'),
+                "last_working_day": submission.last_working_day.strftime("%Y-%m-%d")
             }
 
-            # Create and send interview scheduling email
-            email_message = EmailTemplates.hr_interview_scheduling_request(email_data, interview_url)
+            # Create and send simple reminder email
+            email_message = EmailTemplates.hr_exit_interview_reminder(email_data, platform_url)
             await email_service.send_email(email_message)
-            print(f"✅ HR interview scheduling form sent for submission {submission.id}")
+            print(f"[SUCCESS] HR exit interview reminder sent for submission {submission.id}")
 
         else:
             # For other message types (rejections), send regular notification

@@ -19,7 +19,7 @@ class ExitInterview(Base):
     # Interview Details
     interview_completed = Column(Boolean, nullable=False, default=False)
     interview_feedback = Column(Text, nullable=True)
-    interview_rating = Column(Integer, nullable=True)  # 1-5 scale
+    reason_to_leave = Column(String(100), nullable=True)  # Reason for resignation
     interview_type = Column(String(50), nullable=True)  # in-person, virtual, phone
     interview_completed_at = Column(DateTime, nullable=True)  # When interview was marked as completed
 

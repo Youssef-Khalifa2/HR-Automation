@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useSubmissions, useDeleteSubmission, useResendApproval, useToggleMedicalCard, useFinalizeOffboarding, useCreateSubmission } from '../hooks/useSubmissions';
+import { useState, useEffect } from 'react';
+import { useSubmissions, useDeleteSubmission, useResendApproval, useToggleMedicalCard, useSendVendorEmail, useFinalizeOffboarding, useCreateSubmission } from '../hooks/useSubmissions';
+import { useLeaders, useCHMs, useReloadMappings } from '../hooks/useLeaderMapping';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
@@ -8,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { formatDate, getStatusBadgeVariant, getExitInterviewStatusBadgeVariant } from '../lib/utils';
-import { Trash2, Eye, Send, Plus, CheckCircle, Flag, RefreshCw } from 'lucide-react';
+import { Trash2, Eye, Send, Plus, CheckCircle, Flag, RefreshCw, Mail } from 'lucide-react';
 import type { Submission, SubmissionCreate } from '../lib/types';
 import toast from 'react-hot-toast';
 import {
@@ -27,12 +28,23 @@ export default function SubmissionsPage() {
   const [dateTo, setDateTo] = useState('');
   const [viewSubmission, setViewSubmission] = useState<Submission | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedLeader, setSelectedLeader] = useState<string>('');
+  const [selectedCHM, setSelectedCHM] = useState<string>('');
+  const [vendorModalOpen, setVendorModalOpen] = useState(false);
+  const [selectedVendorType, setSelectedVendorType] = useState<string>('');
+  const [customVendorEmail, setCustomVendorEmail] = useState<string>('');
   const [newSubmission, setNewSubmission] = useState<SubmissionCreate>({
     employee_name: '',
     employee_email: '',
+    employee_id: '',
+    department: '',
+    position: '',
     joining_date: '',
     submission_date: new Date().toISOString().split('T')[0],
     last_working_day: '',
+    team_leader_email: '',
+    chm_email: '',
+    resignation_reason: '',
   });
 
   const { data: submissions, isLoading, refetch } = useSubmissions({
@@ -44,8 +56,33 @@ export default function SubmissionsPage() {
   const deleteSubmission = useDeleteSubmission();
   const resendApproval = useResendApproval();
   const toggleMedicalCard = useToggleMedicalCard();
+  const sendVendorEmail = useSendVendorEmail();
   const finalizeOffboarding = useFinalizeOffboarding();
   const createSubmission = useCreateSubmission();
+
+  // Fetch leaders and CHMs
+  const { data: leaders } = useLeaders();
+  const { data: chms } = useCHMs();
+  const reloadMappings = useReloadMappings();
+
+  // Update emails when leader/CHM selection changes
+  useEffect(() => {
+    if (selectedLeader && leaders) {
+      setNewSubmission(prev => ({
+        ...prev,
+        team_leader_email: leaders[selectedLeader] || ''
+      }));
+    }
+  }, [selectedLeader, leaders]);
+
+  useEffect(() => {
+    if (selectedCHM && chms) {
+      setNewSubmission(prev => ({
+        ...prev,
+        chm_email: chms[selectedCHM] || ''
+      }));
+    }
+  }, [selectedCHM, chms]);
 
   const handleRefresh = async () => {
     toast.promise(
@@ -61,7 +98,10 @@ export default function SubmissionsPage() {
   const handleCreateSubmission = () => {
     // Validate required fields
     if (!newSubmission.employee_name || !newSubmission.employee_email ||
-        !newSubmission.joining_date || !newSubmission.last_working_day) {
+        !newSubmission.employee_id || !newSubmission.department ||
+        !newSubmission.position || !newSubmission.joining_date ||
+        !newSubmission.last_working_day || !newSubmission.team_leader_email ||
+        !newSubmission.chm_email) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -69,12 +109,20 @@ export default function SubmissionsPage() {
     createSubmission.mutate(newSubmission, {
       onSuccess: () => {
         setCreateModalOpen(false);
+        setSelectedLeader('');
+        setSelectedCHM('');
         setNewSubmission({
           employee_name: '',
           employee_email: '',
+          employee_id: '',
+          department: '',
+          position: '',
           joining_date: '',
           submission_date: new Date().toISOString().split('T')[0],
           last_working_day: '',
+          team_leader_email: '',
+          chm_email: '',
+          resignation_reason: '',
         });
       }
     });
@@ -98,6 +146,36 @@ export default function SubmissionsPage() {
         onSuccess: () => setViewSubmission(null)
       });
     }
+  };
+
+  const handleSendVendorEmail = () => {
+    if (!viewSubmission) return;
+
+    if (!selectedVendorType) {
+      toast.error('Please select a vendor type');
+      return;
+    }
+
+    if (selectedVendorType === 'other' && !customVendorEmail) {
+      toast.error('Please enter a custom vendor email');
+      return;
+    }
+
+    const vendorData = {
+      vendor_type: selectedVendorType,
+      ...(selectedVendorType === 'other' && { custom_email: customVendorEmail })
+    };
+
+    sendVendorEmail.mutate(
+      { id: viewSubmission.id, vendorData },
+      {
+        onSuccess: () => {
+          setVendorModalOpen(false);
+          setSelectedVendorType('');
+          setCustomVendorEmail('');
+        }
+      }
+    );
   };
 
   const handleFinalize = (id: number) => {
@@ -278,6 +356,14 @@ export default function SubmissionsPage() {
                     <p className="text-sm text-muted-foreground">{viewSubmission.employee_email}</p>
                   </div>
                   <div>
+                    <p className="text-sm font-medium">Team Leader</p>
+                    <p className="text-sm text-muted-foreground">{viewSubmission.team_leader_name || 'Not assigned'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Chinese Head Manager</p>
+                    <p className="text-sm text-muted-foreground">{viewSubmission.chm_name || 'Not assigned'}</p>
+                  </div>
+                  <div>
                     <p className="text-sm font-medium">Joining Date</p>
                     <p className="text-sm text-muted-foreground">{formatDate(viewSubmission.joining_date)}</p>
                   </div>
@@ -338,12 +424,43 @@ export default function SubmissionsPage() {
                     <p className="text-sm text-muted-foreground">{viewSubmission.in_probation ? 'Yes' : 'No'}</p>
                   </div>
                   <div>
+                    <p className="text-sm font-medium">IT Assets Cleared</p>
+                    <p className="text-sm text-muted-foreground">{viewSubmission.it_support_reply ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
                     <p className="text-sm font-medium">Medical Card Collected</p>
-                    <p className="text-sm text-muted-foreground">{viewSubmission.medical_card_collected ? 'Yes' : 'No'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">{viewSubmission.medical_card_collected ? 'Yes' : 'No'}</p>
+                      {!viewSubmission.medical_card_collected && viewSubmission.it_support_reply && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleToggleMedicalCard(viewSubmission.id)}
+                          disabled={toggleMedicalCard.isPending}
+                          className="h-7 text-xs"
+                        >
+                          <CheckCircle className="mr-1 h-3 w-3" />
+                          Mark Collected
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Vendor Mail Sent</p>
-                    <p className="text-sm text-muted-foreground">{viewSubmission.vendor_mail_sent ? 'Yes' : 'No'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">{viewSubmission.vendor_mail_sent ? 'Yes' : 'No'}</p>
+                      {!viewSubmission.vendor_mail_sent && viewSubmission.medical_card_collected && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => setVendorModalOpen(true)}
+                          className="h-7 text-xs"
+                        >
+                          <Mail className="mr-1 h-3 w-3" />
+                          Send to Vendor
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Created At</p>
@@ -409,61 +526,180 @@ export default function SubmissionsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="employee_name">Employee Name *</Label>
-              <Input
-                id="employee_name"
-                placeholder="e.g. John Doe"
-                value={newSubmission.employee_name}
-                onChange={(e) => setNewSubmission({ ...newSubmission, employee_name: e.target.value })}
-              />
-            </div>
+          <div className="grid gap-4 max-h-[60vh] overflow-y-auto pr-2">
+            {/* Employee Basic Information */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm border-b pb-2">Employee Information</h3>
 
-            <div className="grid gap-2">
-              <Label htmlFor="employee_email">Employee Email *</Label>
-              <Input
-                id="employee_email"
-                type="email"
-                placeholder="e.g. john.doe@company.com"
-                value={newSubmission.employee_email}
-                onChange={(e) => setNewSubmission({ ...newSubmission, employee_email: e.target.value })}
-              />
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="employee_name">Employee Name *</Label>
+                  <Input
+                    id="employee_name"
+                    placeholder="e.g. John Doe"
+                    value={newSubmission.employee_name}
+                    onChange={(e) => setNewSubmission({ ...newSubmission, employee_name: e.target.value })}
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="joining_date">Joining Date *</Label>
-                <Input
-                  id="joining_date"
-                  type="date"
-                  value={newSubmission.joining_date}
-                  onChange={(e) => setNewSubmission({ ...newSubmission, joining_date: e.target.value })}
-                />
+                <div className="grid gap-2">
+                  <Label htmlFor="employee_id">Employee ID *</Label>
+                  <Input
+                    id="employee_id"
+                    placeholder="e.g. EMP-001"
+                    value={newSubmission.employee_id}
+                    onChange={(e) => setNewSubmission({ ...newSubmission, employee_id: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="submission_date">Submission Date *</Label>
+                <Label htmlFor="employee_email">Employee Email *</Label>
                 <Input
-                  id="submission_date"
-                  type="date"
-                  value={newSubmission.submission_date}
-                  onChange={(e) => setNewSubmission({ ...newSubmission, submission_date: e.target.value })}
+                  id="employee_email"
+                  type="email"
+                  placeholder="e.g. john.doe@company.com"
+                  value={newSubmission.employee_email}
+                  onChange={(e) => setNewSubmission({ ...newSubmission, employee_email: e.target.value })}
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="department">Department *</Label>
+                  <Input
+                    id="department"
+                    placeholder="e.g. Engineering"
+                    value={newSubmission.department}
+                    onChange={(e) => setNewSubmission({ ...newSubmission, department: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="position">Position *</Label>
+                  <Input
+                    id="position"
+                    placeholder="e.g. Software Engineer"
+                    value={newSubmission.position}
+                    onChange={(e) => setNewSubmission({ ...newSubmission, position: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="last_working_day">Last Working Day *</Label>
-              <Input
-                id="last_working_day"
-                type="date"
-                value={newSubmission.last_working_day}
-                onChange={(e) => setNewSubmission({ ...newSubmission, last_working_day: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                The notice period will be calculated automatically based on joining date
-              </p>
+            {/* Dates */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm border-b pb-2">Important Dates</h3>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="joining_date">Joining Date *</Label>
+                  <Input
+                    id="joining_date"
+                    type="date"
+                    value={newSubmission.joining_date}
+                    onChange={(e) => setNewSubmission({ ...newSubmission, joining_date: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="submission_date">Submission Date *</Label>
+                  <Input
+                    id="submission_date"
+                    type="date"
+                    value={newSubmission.submission_date}
+                    onChange={(e) => setNewSubmission({ ...newSubmission, submission_date: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="last_working_day">Last Working Day *</Label>
+                <Input
+                  id="last_working_day"
+                  type="date"
+                  value={newSubmission.last_working_day}
+                  onChange={(e) => setNewSubmission({ ...newSubmission, last_working_day: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The notice period will be calculated automatically
+                </p>
+              </div>
+            </div>
+
+            {/* Approvers */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="font-semibold text-sm">Approvers</h3>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => reloadMappings.mutate()}
+                  disabled={reloadMappings.isPending}
+                  className="h-7 text-xs"
+                >
+                  <RefreshCw className={`h-3 w-3 mr-1 ${reloadMappings.isPending ? 'animate-spin' : ''}`} />
+                  {reloadMappings.isPending ? 'Reloading...' : 'Reload CSV'}
+                </Button>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="team_leader">Team Leader *</Label>
+                <Select value={selectedLeader} onValueChange={setSelectedLeader}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team leader" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leaders && Object.entries(leaders).map(([name, email]) => (
+                      <SelectItem key={name} value={name}>
+                        {name} ({email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedLeader && (
+                  <p className="text-xs text-muted-foreground">
+                    Email: {newSubmission.team_leader_email}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="chm">Chinese Head Manager (CHM) *</Label>
+                <Select value={selectedCHM} onValueChange={setSelectedCHM}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select CHM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chms && Object.entries(chms).map(([name, email]) => (
+                      <SelectItem key={name} value={name}>
+                        {name} ({email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedCHM && (
+                  <p className="text-xs text-muted-foreground">
+                    Email: {newSubmission.chm_email}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Optional Fields */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm border-b pb-2">Additional Information</h3>
+
+              <div className="grid gap-2">
+                <Label htmlFor="resignation_reason">Resignation Reason (Optional)</Label>
+                <Input
+                  id="resignation_reason"
+                  placeholder="e.g. Career growth, Relocation, etc."
+                  value={newSubmission.resignation_reason}
+                  onChange={(e) => setNewSubmission({ ...newSubmission, resignation_reason: e.target.value })}
+                />
+              </div>
             </div>
           </div>
 
@@ -473,6 +709,72 @@ export default function SubmissionsPage() {
             </Button>
             <Button onClick={handleCreateSubmission} disabled={createSubmission.isPending}>
               {createSubmission.isPending ? 'Creating...' : 'Create Submission'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vendor Email Modal */}
+      <Dialog open={vendorModalOpen} onOpenChange={setVendorModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Vendor Notification</DialogTitle>
+            <DialogDescription>
+              Choose an HR vendor to send the offboarding notification email
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="vendor-type">Choose HR Vendor</Label>
+              <Select value={selectedVendorType} onValueChange={setSelectedVendorType}>
+                <SelectTrigger id="vendor-type">
+                  <SelectValue placeholder="Select vendor type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="migrate">Migrate</SelectItem>
+                  <SelectItem value="justhr">Just HR</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedVendorType === 'other' && (
+              <div className="space-y-2">
+                <Label htmlFor="custom-email">Vendor Email Address</Label>
+                <Input
+                  id="custom-email"
+                  type="email"
+                  placeholder="vendor@example.com"
+                  value={customVendorEmail}
+                  onChange={(e) => setCustomVendorEmail(e.target.value)}
+                />
+              </div>
+            )}
+
+            {selectedVendorType === 'migrate' && (
+              <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                Email will be sent to: <strong>hrcrm@migratebusiness.com</strong>
+              </div>
+            )}
+
+            {selectedVendorType === 'justhr' && (
+              <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                Email will be sent to: <strong>r.kandil@jhr-services.com</strong> and <strong>m.khaled@jhr-services.com</strong>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVendorModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendVendorEmail}
+              disabled={sendVendorEmail.isPending || !selectedVendorType}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              {sendVendorEmail.isPending ? 'Sending...' : 'Send Email'}
             </Button>
           </DialogFooter>
         </DialogContent>

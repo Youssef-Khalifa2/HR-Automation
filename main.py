@@ -10,10 +10,10 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.database import engine, Base
-from app.api import auth, submissions, users, public, approvals, mapping, forms, assets, reminders, email_monitoring
+from app.api import auth, submissions, users, public, approvals, mapping, forms, assets, reminders, email_monitoring, admin
 from app.schemas_all import *  # Import all schemas from consolidated file
 # Import all models to ensure they are registered with SQLAlchemy
-from app.models import user, submission, asset, exit_interview
+from app.models import user, submission, asset, exit_interview, config
 from app.core.security import ApprovalTokenService
 from app.services.email import create_email_service
 from config import SIGNING_SECRET
@@ -100,7 +100,10 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=[
+        "http://localhost:5173",  # Frontend dev server
+        "http://localhost:3000",  # Alternative frontend port
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -121,6 +124,7 @@ app.include_router(mapping.router)  # Leader mapping routes
 app.include_router(forms.router)  # Tokenized email forms routes
 app.include_router(reminders.router)  # Reminder automation routes
 app.include_router(email_monitoring.router, prefix="/api/email-monitoring", tags=["Email Monitoring"])  # Email delivery tracking
+app.include_router(admin.router)  # Admin configuration routes (requires admin auth)
 
 
 # React SPA routes - commented out old Jinja2 template routes

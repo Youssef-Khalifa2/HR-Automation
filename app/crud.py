@@ -107,6 +107,11 @@ def create_submission(db: Session, submission) -> Submission:
     db_submission = Submission(
         employee_name=submission.employee_name,
         employee_email=submission.employee_email,
+        employee_id=getattr(submission, 'employee_id', None),
+        department=getattr(submission, 'department', None),
+        position=getattr(submission, 'position', None),
+        team_leader_email=getattr(submission, 'team_leader_email', None),
+        chm_email=getattr(submission, 'chm_email', None),
         joining_date=submission.joining_date,
         submission_date=submission.submission_date,
         last_working_day=submission.last_working_day,
@@ -170,11 +175,8 @@ def create_asset(db: Session, asset) -> Asset:
     """Create new asset"""
     db_asset = Asset(
         res_id=asset.res_id,  # Match DB column name
-        laptop=asset.laptop,
-        mouse=asset.mouse,
-        headphones=asset.headphones,
-        others=asset.others,
-        approved=asset.approved
+        assets_returned=getattr(asset, 'assets_returned', False),
+        notes=getattr(asset, 'notes', None)
     )
     db.add(db_asset)
     db.commit()
@@ -187,12 +189,17 @@ def update_asset(db: Session, res_id: int, asset) -> Optional[Asset]:
     db_asset = get_asset_by_submission(db, res_id)
     if not db_asset:
         # Create if doesn't exist
-        from app.schemas_all import AssetCreate
-        db_asset = create_asset(db, AssetCreate(res_id=res_id, **asset.dict()))
+        db_asset = Asset(
+            res_id=res_id,
+            assets_returned=getattr(asset, 'assets_returned', False),
+            notes=getattr(asset, 'notes', None)
+        )
+        db.add(db_asset)
     else:
         update_data = asset.dict(exclude_unset=True)
         for field, value in update_data.items():
-            setattr(db_asset, field, value)
+            if hasattr(db_asset, field):
+                setattr(db_asset, field, value)
         db.commit()
         db.refresh(db_asset)
 

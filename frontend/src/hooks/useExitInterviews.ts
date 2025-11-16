@@ -106,3 +106,13 @@ export const useSkipInterview = () => {
     },
   });
 };
+
+export const useAllExitInterviews = () => {
+  return useQuery({
+    queryKey: ['allExitInterviews'],
+    queryFn: async () => {
+      const { data } = await api.get<any[]>('/api/submissions/exit-interviews/list');
+      return data || [];
+    },
+  });
+};

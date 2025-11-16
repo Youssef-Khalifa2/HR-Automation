@@ -16,7 +16,7 @@ class ExitInterviewSchedule(BaseModel):
 class ExitInterviewFeedback(BaseModel):
     """Schema for submitting interview feedback"""
     interview_feedback: Optional[str] = None
-    interview_rating: Optional[int] = None
+    reason_to_leave: Optional[str] = None
     hr_notes: Optional[str] = None
 
 
@@ -34,7 +34,7 @@ class ExitInterviewBase(BaseModel):
     # Interview Details
     interview_completed: bool = False
     interview_feedback: Optional[str] = None
-    interview_rating: Optional[int] = None
+    reason_to_leave: Optional[str] = None
     interview_type: Optional[str] = None
 
     # Follow-up Actions
@@ -102,7 +102,7 @@ class InterviewFeedbackRequest(BaseModel):
     """Request for HR to submit interview feedback"""
     interview_id: int
     interview_feedback: Optional[str] = None
-    interview_rating: Optional[int] = None  # 1-5 scale
+    reason_to_leave: Optional[str] = None
     hr_notes: Optional[str] = None
 
 

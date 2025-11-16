@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     """Unified configuration for HR Co-Pilot application"""
 
     # Application Settings
-    APP_BASE_URL: str = "http://localhost:8000"
-    SIGNING_SECRET: str = "your-secret-key-change-in-production"
-    SECRET_KEY: str = "your-jwt-secret-key-change-in-production"
+    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "http://localhost:8000")
+    SIGNING_SECRET: str = os.getenv("SIGNING_SECRET", "")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
@@ -26,22 +26,27 @@ class Settings(BaseSettings):
     APPROVAL_PAGE_TIMEOUT: float = 15.0
 
     # Database Configuration
-    DATABASE_URL: str = "postgresql+psycopg://postgres:123@localhost:5432/appdb"
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:123@localhost:5432/appdb")
 
     # Email Configuration
-    SMTP_HOST: str = "smtp.qiye.aliyun.com"
-    SMTP_PORT: int = 465
-    SMTP_USER: str = "youssefkhalifa@51talk.com"
-    SMTP_PASS: str = "2jMYVlkFzZaefcLL"
-    FROM_ADDR: str = "youssefkhalifa@51talk.com"
-    SMTP_FROM_EMAIL: str = "youssefkhalifa@51talk.com"
-    SMTP_FROM_NAME: str = "HR Automation System"
-    SMTP_USE_TLS: bool = True
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "sendgrid")  # Options: sendgrid, smtp
+    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
+
+    # SMTP Configuration (Fallback)
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.qiye.aliyun.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASS: str = os.getenv("SMTP_PASS", "")
+    FROM_ADDR: str = os.getenv("SMTP_FROM_EMAIL", "")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "HR Automation System")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "True").lower() == "true"
 
     # Email Recipients Configuration
-    HR_EMAIL: str = "youssefkhalifa@51talk.com"  # HR department email for all notifications
-    IT_EMAIL: str = "youssefkhalifa@51talk.com"  # IT department email for asset clearance
-    IT_SUPPORT_EMAIL: str = "youssefkhalifa@51talk.com"  # IT support email (alias for IT_EMAIL)
+    HR_EMAIL: str = os.getenv("HR_EMAIL", "youssefkhalifa@51talk.com")
+    HR_EMAIL_CC: str = os.getenv("HR_EMAIL_CC", "")  # Comma-separated CC emails for HR notifications
+    IT_EMAIL: str = os.getenv("IT_EMAIL", "youssefkhalifa@51talk.com")
+    IT_SUPPORT_EMAIL: str = os.getenv("IT_EMAIL", "youssefkhalifa@51talk.com")
 
     # Frontend Configuration
     FRONTEND_URL: str = "http://localhost:5173"  # Frontend URL for approval links
@@ -69,7 +74,7 @@ SECRET_KEY = settings.SECRET_KEY
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 BASE_URL = settings.APP_BASE_URL
 HR_EMAIL = settings.HR_EMAIL
-CHM_test_mail = "youssefkhalifa458@gmail.com"
+HR_EMAIL_CC = settings.HR_EMAIL_CC
 
 # Email configuration (legacy access)
 SMTP_HOST = settings.SMTP_HOST

@@ -1,0 +1,103 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/api/public/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[[deploy.environmentVariables]]
+name = "PORT"
+default = "8000"
+
+[[deploy.environmentVariables]]
+name = "ENVIRONMENT"
+default = "production"
+
+# Database Configuration
+[[deploy.environmentVariables]]
+name = "DATABASE_URL"
+# Set this in Railway dashboard with your PostgreSQL connection string
+
+# Security
+[[deploy.environmentVariables]]
+name = "SECRET_KEY"
+# Set this in Railway dashboard - generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+[[deploy.environmentVariables]]
+name = "SIGNING_SECRET"
+# Set this in Railway dashboard - generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Application URLs
+[[deploy.environmentVariables]]
+name = "APP_BASE_URL"
+# Set this in Railway dashboard to your Railway app URL (e.g., https://your-app.railway.app)
+
+[[deploy.environmentVariables]]
+name = "FRONTEND_URL"
+# Set this in Railway dashboard to your frontend URL
+
+# Email Configuration
+[[deploy.environmentVariables]]
+name = "EMAIL_PROVIDER"
+default = "sendgrid"
+
+[[deploy.environmentVariables]]
+name = "SENDGRID_API_KEY"
+# Set this in Railway dashboard with your SendGrid API key
+
+# SMTP Configuration (if using SMTP instead of SendGrid)
+[[deploy.environmentVariables]]
+name = "SMTP_HOST"
+default = "smtp.qiye.aliyun.com"
+
+[[deploy.environmentVariables]]
+name = "SMTP_PORT"
+default = "465"
+
+[[deploy.environmentVariables]]
+name = "SMTP_USER"
+# Set this in Railway dashboard if using SMTP
+
+[[deploy.environmentVariables]]
+name = "SMTP_PASS"
+# Set this in Railway dashboard if using SMTP
+
+[[deploy.environmentVariables]]
+name = "SMTP_FROM_EMAIL"
+# Set this in Railway dashboard
+
+[[deploy.environmentVariables]]
+name = "SMTP_FROM_NAME"
+default = "HR Automation System"
+
+# Email Recipients
+[[deploy.environmentVariables]]
+name = "HR_EMAIL"
+# Set this in Railway dashboard
+
+[[deploy.environmentVariables]]
+name = "HR_EMAIL_CC"
+# Set this in Railway dashboard (comma-separated)
+
+[[deploy.environmentVariables]]
+name = "IT_EMAIL"
+# Set this in Railway dashboard
+
+# Reminder Configuration
+[[deploy.environmentVariables]]
+name = "ENABLE_AUTO_REMINDERS"
+default = "true"
+
+[[deploy.environmentVariables]]
+name = "REMINDER_THRESHOLD_HOURS"
+default = "24"
+
+[services]
+# Main application service
+[[services]]
+name = "hr-automation-api"
+source = "."

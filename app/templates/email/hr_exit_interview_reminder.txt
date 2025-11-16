@@ -1,0 +1,21 @@
+EXIT INTERVIEW - ACTION REQUIRED
+
+Please schedule or skip the exit interview for the following employee:
+
+Employee Details:
+-----------------
+Name: {{ employee_name }}
+Email: {{ employee_email }}
+Department: {{ department }}
+Position: {{ position }}
+Last Working Day: {{ last_working_day }}
+Submission ID: #{{ submission_id }}
+
+Action Required:
+Log in to the HR dashboard to schedule or skip the exit interview.
+
+Platform URL: {{ platform_url }}
+
+---
+This is an automated notification from the HR Automation System
+{{ current_date }}

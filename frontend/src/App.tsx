@@ -9,6 +9,8 @@ import DashboardPage from './pages/DashboardPage';
 import SubmissionsPage from './pages/SubmissionsPage';
 import ExitInterviewsPage from './pages/ExitInterviewsPage';
 import AssetsPage from './pages/AssetsPage';
+import PublicSubmissionPage from './pages/PublicSubmissionPage';
+import AdminPage from './pages/AdminPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,12 +34,14 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/submit" element={<PublicSubmissionPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/submissions" element={<SubmissionsPage />} />
             <Route path="/exit-interviews" element={<ExitInterviewsPage />} />
             <Route path="/assets" element={<AssetsPage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

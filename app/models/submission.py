@@ -33,9 +33,16 @@ class Submission(Base):
     # Employee Information
     employee_name = Column(String(100), nullable=False)
     employee_email = Column(String(150), nullable=False)
+    employee_id = Column(String(50), nullable=True)
+    department = Column(String(100), nullable=True)
+    position = Column(String(100), nullable=True)
+
+    # Leader/Approver Information (from CSV mapping)
+    team_leader_email = Column(String(150), nullable=True)
+    chm_email = Column(String(150), nullable=True)
 
     # Dates (matching actual database schema)
-    joining_date = Column(DateTime, nullable=False)  # Matches database column
+    joining_date = Column(DateTime, nullable=True)  # Optional field
     submission_date = Column(DateTime, nullable=False)  # Matches database column
     last_working_day = Column(DateTime, nullable=False)
 

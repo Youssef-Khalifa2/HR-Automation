@@ -6,7 +6,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 
 from app.database import get_db
-from app.core.auth import get_current_hr_user  # Only used for retry endpoint
+from app.core.auth import get_current_user  # Only used for retry endpoint
 from app.models.email_log import EmailLog, EmailDeliveryStats
 from app.services.email_tracker_sync import EmailDeliveryTrackerSync
 from pydantic import BaseModel
@@ -236,7 +236,7 @@ async def get_suspicious_failures(
 @router.post("/retry-failed-emails")
 async def retry_failed_emails(
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_hr_user)
+    user=Depends(get_current_user)
 ):
     """
     Retry all emails that were rate limited and are ready for retry

@@ -1,302 +1,190 @@
-# HR Co-Pilot - Employee Offboarding Automation
+# HR Automation System
 
-Phase 1 implementation of the HR Co-Pilot MVP, an automated employee resignation workflow management system.
+Complete HR resignation workflow automation system with approval chains, exit interviews, asset tracking, and vendor notifications.
 
-## Overview
+## Features
 
-HR Co-Pilot streamlines the employee offboarding process through:
-- Automated workflow management
-- Role-based approval systems
-- Real-time status tracking
-- Centralized dashboard for HR personnel
+### Core Functionality
+- ✅ **Resignation Submission** - Employee self-service resignation forms
+- ✅ **Multi-level Approvals** - Leader → CHM → HR approval chain
+- ✅ **Exit Interviews** - Automated scheduling and feedback collection
+- ✅ **Asset Tracking** - Company asset return monitoring
+- ✅ **Vendor Integration** - Automated notifications to HR service vendors (Migrate Business, Just HR)
+- ✅ **Email Notifications** - SendGrid/SMTP email delivery with tracking
+- ✅ **Automated Reminders** - Smart reminder system for pending actions
+- ✅ **Team Mapping** - Department-to-leader mapping configuration
+- ✅ **Admin Dashboard** - Centralized configuration management
 
-## Features (Phase 1)
+### Technical Features
+- **Authentication** - JWT-based user authentication
+- **Role Management** - Simplified authentication (admin/hr unified)
+- **Email CC Support** - Multiple HR recipients with CC functionality
+- **Configurable Settings** - All settings manageable from admin interface
+- **Email Tracking** - Full email delivery tracking and logging
+- **Responsive UI** - Modern React-based interface
+- **Database-driven Config** - Dynamic configuration without code changes
 
-### ✅ Completed
-- **Authentication System**: JWT-based login for HR personnel
-- **User Management**: Role-based access control (HR, Leader, CHM, IT)
-- **Submission CRUD**: Create, read, update, delete resignation submissions
-- **Dashboard**: Real-time statistics and recent activity
-- **Database Models**: Complete schema for users, submissions, and assets
-- **API Documentation**: Auto-generated OpenAPI/Swagger docs
-- **Comprehensive Testing**: Unit, integration, and API tests
-- **Responsive UI**: Mobile-friendly Bootstrap interface
+## Tech Stack
 
-### 🚧 Planned (Phase 2+)
-- Email notifications and approval links
-- Asset management and tracking
-- Exit interview scheduling
-- Automated reminder system
-- Advanced reporting and analytics
+### Backend
+- **Python 3.11+** with FastAPI
+- **PostgreSQL** database
+- **SQLAlchemy** ORM
+- **SendGrid/SMTP** for email delivery
+- **JWT** authentication
+
+### Frontend
+- **React 18** with TypeScript
+- **Vite** build tool
+- **TanStack Query** for state management
+- **Tailwind CSS** for styling
+- **React Router** for navigation
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.8+
-- PostgreSQL database
-- Conda environment (HR_Resignation)
+### Local Development
 
-### Installation
+1. **Clone repository**
+```bash
+git clone <your-repo-url>
+cd "HR Automation"
+```
 
-1. **Clone and setup**:
-   ```bash
-   cd "HR Automation"
-   python setup.py
-   ```
+2. **Set up backend**
+```bash
+# Install Python dependencies
+pip install -r requirements.txt
 
-2. **Manual setup** (if setup.py fails):
-   ```bash
-   # Activate conda environment
-   conda activate HR_Resignation
+# Create .env file
+cp .env.example .env
+# Edit .env with your configuration
 
-   # Install dependencies
-   pip install -r requirements.txt
+# Run migrations and start server
+uvicorn main:app --reload
+```
 
-   # Initialize database
-   python init_db.py
+3. **Set up frontend**
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-   # Run tests
-   python -m pytest tests/ -v
-   ```
+4. **Access application**
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
-3. **Start the application**:
-   ```bash
-   uvicorn main:app --reload
-   ```
+### Docker Deployment
 
-4. **Access the application**:
-   - Web Interface: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
-   - ReDoc: http://localhost:8000/redoc
+```bash
+# Start all services
+docker-compose up -d
 
-### Default Login Credentials
-- **Email**: hr@company.com
-- **Password**: hr123456
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+## Deployment
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete deployment instructions including:
+- Railway deployment (recommended)
+- Docker containerization
+- Database migration
+- Environment variables
+- Production setup
+
+## Database Migration
+
+Migrate from local to production database:
+
+```bash
+python migrate_database.py \
+  --source "postgresql://user:pass@localhost:5432/local_db" \
+  --target "postgresql://user:pass@prod-host:5432/prod_db"
+```
+
+## Configuration
+
+All configuration is managed through the admin interface at `/admin`:
+
+- **Email Settings** - SendGrid/SMTP configuration
+- **Email Recipients** - HR, IT, and CC recipients
+- **Team Mappings** - Department to leader assignments
+- **Vendor Emails** - Migrate Business and Just HR contacts
+- **System Settings** - Application URLs and reminder configuration
 
 ## Project Structure
 
 ```
 HR Automation/
-├── app/                    # Application core
-│   ├── __init__.py
+├── app/                    # Backend application
 │   ├── api/               # API endpoints
-│   │   ├── auth.py        # Authentication endpoints
-│   │   ├── submissions.py # Submission CRUD
-│   │   └── users.py       # User management
-│   ├── auth.py            # Authentication utilities
-│   ├── crud.py            # Database operations
-│   ├── database.py        # Database configuration
-│   ├── models.py          # SQLAlchemy models
-│   └── schemas.py         # Pydantic schemas
-├── static/                # Static assets
-├── templates/             # Jinja2 templates
-│   ├── base.html          # Base template
-│   ├── dashboard.html     # Dashboard page
-│   ├── index.html         # Login page
-│   └── submissions.html   # Submissions management
-├── tests/                 # Test suite
-│   ├── conftest.py        # Test configuration
-│   ├── test_auth.py       # Authentication tests
-│   ├── test_crud.py       # CRUD operations tests
-│   ├── test_models.py     # Model tests
-│   ├── test_submissions.py # Submission tests
-│   └── test_users.py      # User tests
-├── config.py              # Configuration
-├── init_db.py            # Database initialization
-├── main.py               # FastAPI application
-├── requirements.txt      # Dependencies
-├── refined_wireframes.md # Implementation guide
-└── setup.py              # Setup script
+│   ├── models/            # Database models
+│   ├── services/          # Business logic
+│   ├── templates/         # Email templates
+│   └── core/              # Core utilities
+├── frontend/              # React frontend
+│   └── src/
+│       ├── components/    # UI components
+│       ├── pages/         # Page components
+│       └── hooks/         # React hooks
+├── Assets/                # Static assets
+├── Dockerfile             # Backend container
+├── docker-compose.yml     # Local development
+├── railway.toml           # Railway configuration
+├── migrate_database.py    # Database migration tool
+└── requirements.txt       # Python dependencies
 ```
 
-## Configuration
+## Environment Variables
 
-### Environment Variables
-Copy `.env.example` to `.env` and configure:
+Required environment variables:
 
-```env
+```bash
 # Database
-DATABASE_URL=postgresql+psycopg://username:password@localhost:5432/hr_copilot
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+
+# Security
+SECRET_KEY=<random-secret-key>
+SIGNING_SECRET=<random-signing-secret>
 
 # Application
-APP_BASE_URL=http://localhost:8000
-SECRET_KEY=your-jwt-secret-key
-SIGNING_SECRET=your-signing-secret
+APP_BASE_URL=https://your-api-url.com
+FRONTEND_URL=https://your-frontend-url.com
 
-# Email (for Phase 2)
-SMTP_HOST=smtp.qiye.aliyun.com
-SMTP_PORT=465
-SMTP_USER=your-email@company.com
-SMTP_PASS=your-password
+# Email
+EMAIL_PROVIDER=sendgrid  # or smtp
+SENDGRID_API_KEY=<your-key>
+HR_EMAIL=hr@company.com
+HR_EMAIL_CC=manager@company.com,supervisor@company.com
+IT_EMAIL=it@company.com
 ```
 
-### Database Setup
-1. Create PostgreSQL database: `createdb hr_copilot`
-2. Update `config.py` with your database URL
-3. Run initialization: `python init_db.py`
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete list.
 
 ## API Documentation
 
-### Authentication Endpoints
-- `POST /api/auth/login` - User login
-- `POST /api/auth/token` - OAuth2 token endpoint
+Interactive API documentation available at:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
-### User Management
-- `GET /api/users/me` - Current user info
-- `GET /api/users/` - List users (HR only)
-- `POST /api/users/` - Create user (HR only)
-- `GET /api/users/{id}` - Get user by ID (HR only)
+## Security
 
-### Submission Management
-- `GET /api/submissions/` - List submissions with filters
-- `POST /api/submissions/` - Create submission
-- `GET /api/submissions/{id}` - Get submission details
-- `PATCH /api/submissions/{id}` - Update submission
-- `DELETE /api/submissions/{id}` - Delete submission
-
-### Health Check
-- `GET /health` - Application health status
-
-## Testing
-
-### Run All Tests
-```bash
-python -m pytest tests/ -v
-```
-
-### Run Specific Test Categories
-```bash
-python -m pytest tests/test_auth.py -v          # Authentication tests
-python -m pytest tests/test_submissions.py -v   # Submission tests
-python -m pytest tests/test_models.py -v        # Model tests
-```
-
-### Test Coverage
-```bash
-python -m pytest tests/ --cov=app --cov-report=html
-```
-
-## Database Schema
-
-### Users Table
-- `id` - Primary key
-- `email` - Unique email address
-- `hashed_password` - Bcrypt hash
-- `full_name` - User display name
-- `role` - Enum: hr, leader, chm, it
-- `is_active` - Boolean status
-- `created_at`, `updated_at` - Timestamps
-
-### Submissions Table
-- Employee information (name, email, id, department, position)
-- Employment details (hire_date, resignation_date, last_working_day)
-- Workflow status (resignation_status, exit_interview_status)
-- Approval tracking (team_leader_reply, chinese_head_reply, it_support_reply)
-- Notes and timestamps
-- Foreign key to users table
-
-### Assets Table
-- `submission_id` - Foreign key
-- Asset items (laptop, mouse, headphones, others)
-- Approval status
-- Timestamps
-
-## Development
-
-### Code Quality
-```bash
-# Linting
-ruff check app/ tests/
-
-# Formatting
-black app/ tests/
-
-# Type checking
-mypy app/
-```
-
-### Adding New Features
-1. Update models in `app/models.py`
-2. Create Pydantic schemas in `app/schemas.py`
-3. Implement CRUD operations in `app/crud.py`
-4. Add API endpoints in `app/api/`
-5. Create corresponding tests in `tests/`
-6. Update frontend templates as needed
-
-## Security Considerations
-
-- ✅ Password hashing with bcrypt
-- ✅ JWT token authentication
-- ✅ Role-based access control
-- ✅ Input validation and sanitization
-- ✅ SQL injection prevention via SQLAlchemy
-- ⚠️ Configure HTTPS in production
-- ⚠️ Set up proper CORS origins
-- ⚠️ Use environment-specific secret keys
-
-## Deployment
-
-### Development
-```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Production (Railway)
-1. Set environment variables in Railway dashboard
-2. Configure DATABASE_URL for PostgreSQL
-3. Set SECRET_KEY and SIGNING_SECRET
-4. Deploy the application
-5. Run health checks: `GET /health`
-
-## Troubleshooting
-
-### Common Issues
-
-**Database Connection Errors**
-- Check PostgreSQL is running
-- Verify DATABASE_URL in config.py
-- Ensure database exists: `createdb hr_copilot`
-
-**Import Errors**
-- Activate HR_Resignation conda environment
-- Install dependencies: `pip install -r requirements.txt`
-
-**Authentication Failures**
-- Check user exists and is active
-- Verify password is correct
-- Check JWT secret key configuration
-
-**Test Failures**
-- Ensure test database is accessible
-- Check all dependencies are installed
-- Verify database schema is up to date
-
-## Contributing
-
-1. Follow PEP 8 style guidelines
-2. Write tests for new features
-3. Update documentation
-4. Use meaningful commit messages
-5. Ensure all tests pass before submitting
+- JWT-based authentication
+- Password hashing with bcrypt
+- Environment-based secrets
+- HTTPS enforcement in production
+- SQL injection protection via ORM
+- XSS protection in frontend
 
 ## License
 
-This project is proprietary to the organization. All rights reserved.
+Proprietary - All rights reserved
 
 ## Support
 
-For technical support or questions:
-- Check the troubleshooting section
-- Review the API documentation at `/docs`
-- Contact the development team
-
----
-
-**Phase 1 Complete** ✅
-- Core application infrastructure
-- Authentication and authorization
-- Basic CRUD operations
-- Responsive web interface
-- Comprehensive test coverage
-
-Ready for Phase 2 development: Email integration and workflow automation.
+For deployment issues, see [DEPLOYMENT.md](DEPLOYMENT.md)

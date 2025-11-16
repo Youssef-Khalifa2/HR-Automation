@@ -12,7 +12,7 @@ from app.services.enhanced_email import EnhancedEmailService
 from app.crud_exit_interview import schedule_exit_interview, complete_exit_interview
 from app.crud import update_submission
 from app.schemas_all import SubmissionUpdate
-from app.core.auth import get_current_hr_user
+from app.core.auth import get_current_user
 from app.models.user import User
 from config import BASE_URL
 import logging
@@ -292,7 +292,7 @@ SCHEDULE_INTERVIEW_FORM = """
         }
 
         async function skipInterview() {
-            if (!confirm('Are you sure you want to skip the exit interview?\n\nThis will expedite the offboarding process and send the IT assets collection form directly.')) {
+            if (!confirm('Are you sure you want to skip the exit interview?\\n\\nThis will expedite the offboarding process and send the IT assets collection form directly.')) {
                 return;
             }
 
@@ -949,21 +949,46 @@ def get_skip_interview_form(request: Request, token: str):
 
 @router.get("/validate-token")
 async def validate_token(request: Request, token: str, db: Session = Depends(get_db)):
-    """Validate a token and return embedded data"""
+    """Validate a token and return embedded data with submission details"""
     try:
         service = get_tokenized_form_service()
         is_valid, token_data, error_msg = service.validate_and_extract_token(token)
 
-        if is_valid:
-            return JSONResponse({
-                "valid": True,
-                "data": token_data
-            })
-        else:
+        if not is_valid:
             return JSONResponse({
                 "valid": False,
                 "error": error_msg
             }, status_code=400)
+
+        # Get submission details from database
+        submission_id = token_data.get("submission_id")
+        if not submission_id:
+            return JSONResponse({
+                "valid": False,
+                "error": "Token missing submission_id"
+            }, status_code=400)
+
+        from app.models.submission import Submission
+        submission = db.query(Submission).filter(Submission.id == submission_id).first()
+
+        if not submission:
+            return JSONResponse({
+                "valid": False,
+                "error": "Submission not found"
+            }, status_code=404)
+
+        # Return token data with submission details
+        return JSONResponse({
+            "valid": True,
+            "data": {
+                **token_data,
+                "employee_name": submission.employee_name,
+                "employee_email": submission.employee_email,
+                "position": getattr(submission, 'position', 'Employee'),
+                "department": getattr(submission, 'department', 'General'),
+                "last_working_day": submission.last_working_day.strftime("%Y-%m-%d") if submission.last_working_day else None
+            }
+        })
 
     except Exception as e:
         logger.error(f"Token validation error: {str(e)}")
@@ -1248,9 +1273,9 @@ async def skip_interview_via_form(
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_msg)
 
-        # Verify this is a skip interview token
-        if token_data.get("action") != "skip_interview":
-            raise HTTPException(status_code=400, detail="Invalid token type")
+        # Verify this is a skip or schedule interview token (both can skip)
+        if token_data.get("action") not in ["skip_interview", "schedule_interview"]:
+            raise HTTPException(status_code=400, detail="Invalid token type for skipping interview")
 
         submission_id = token_data.get("submission_id")
         employee_email = token_data.get("employee_email")
@@ -1630,10 +1655,10 @@ async def show_it_clearance_form(token: str, db: Session = Depends(get_db)):
     """Display IT asset clearance form"""
     try:
         token_service = get_tokenized_form_service()
-        data = token_service.validate_token(token, "it_clearance")
+        is_valid, data, error_msg = token_service.validate_and_extract_token(token)
 
-        if not data:
-            return HTMLResponse("<html><body><h1>Invalid or expired token</h1><p>This link may have expired or is invalid.</p></body></html>")
+        if not is_valid or not data:
+            return HTMLResponse(f"<html><body><h1>Invalid or expired token</h1><p>{error_msg or 'This link may have expired or is invalid.'}</p></body></html>")
 
         from app.models.submission import Submission
         submission = db.query(Submission).filter(Submission.id == data["submission_id"]).first()
@@ -1668,26 +1693,57 @@ async def submit_it_clearance(data: ITClearanceData, db: Session = Depends(get_d
     """Process IT asset clearance form submission"""
     try:
         token_service = get_tokenized_form_service()
-        token_data = token_service.validate_token(data.token, "it_clearance")
+        is_valid, token_data, error_msg = token_service.validate_and_extract_token(data.token)
 
-        if not token_data:
-            return JSONResponse({"success": False, "message": "Invalid or expired token"}, status_code=400)
+        if not is_valid or not token_data:
+            return JSONResponse({"success": False, "message": error_msg or "Invalid or expired token"}, status_code=400)
 
-        from app.models.submission import Submission
+        from app.models.submission import Submission, ResignationStatus
+        from app.models.asset import Asset
+
         submission = db.query(Submission).filter(Submission.id == token_data["submission_id"]).first()
 
         if not submission:
             return JSONResponse({"success": False, "message": "Submission not found"}, status_code=404)
 
-        # Update submission with IT clearance
-        submission.it_asset_cleared = True
-        submission.it_clearance_date = data.collection_date
-        submission.it_notes = data.it_notes
-        db.commit()
+        # Create or update Asset record
+        asset = db.query(Asset).filter(Asset.res_id == submission.id).first()
 
-        logger.info(f"IT clearance completed for submission {submission.id} - {submission.employee_name}")
-        return JSONResponse({"success": True, "message": "IT clearance completed successfully"})
+        if asset:
+            # Update existing asset
+            asset.assets_returned = True
+            asset.notes = data.it_notes or f"IT clearance completed on {data.collection_date}"
+        else:
+            # Create new asset record
+            asset = Asset(
+                res_id=submission.id,
+                assets_returned=True,
+                notes=data.it_notes or f"IT clearance completed on {data.collection_date}"
+            )
+            db.add(asset)
+
+        # Update submission IT status
+        submission.it_support_reply = True
+
+        # Update resignation status to ASSETS_RECORDED (IT clearance done)
+        submission.resignation_status = ResignationStatus.ASSETS_RECORDED.value
+
+        db.commit()
+        db.refresh(submission)
+
+        logger.info(f"[OK] IT clearance completed for submission {submission.id} - {submission.employee_name}")
+        logger.info(f"[OK] Asset record created/updated: assets_returned=True")
+        logger.info(f"[OK] Submission status updated to: {submission.resignation_status}")
+
+        return JSONResponse({
+            "success": True,
+            "message": "IT clearance completed successfully",
+            "submission_status": submission.resignation_status
+        })
 
     except Exception as e:
         logger.error(f"Error processing IT clearance: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        db.rollback()
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)

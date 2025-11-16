@@ -63,7 +63,7 @@ def complete_exit_interview(
     db: Session,
     interview_id: int,
     feedback: str = None,
-    rating: int = None,
+    reason_to_leave: str = None,
     hr_notes: str = None
 ) -> ExitInterview:
     """Complete an exit interview and trigger IT notification"""
@@ -74,7 +74,7 @@ def complete_exit_interview(
     # Update interview details
     exit_interview.interview_completed = True
     exit_interview.interview_feedback = feedback
-    exit_interview.interview_rating = rating
+    exit_interview.reason_to_leave = reason_to_leave
     exit_interview.hr_notes = hr_notes
     exit_interview.interview_completed_at = datetime.utcnow()
 

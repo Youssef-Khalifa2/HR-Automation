@@ -110,14 +110,15 @@ def get_current_user(
     return user
 
 
-def get_current_hr_user(current_user: User = Depends(get_current_user)) -> User:
-    """Ensure current user is HR"""
-    if current_user.role != "hr":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
-    return current_user
+# NO LONGER USED (removed role-based access control)
+# def get_current_hr_user(current_user: User = Depends(get_current_user)) -> User:
+#     """Ensure current user is HR"""
+#     if current_user.role != "hr":
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="Not enough permissions"
+#         )
+#     return current_user
 
 
 def create_user(db: Session, email: str, password: str, full_name: str, role: str) -> User:

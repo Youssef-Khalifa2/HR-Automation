@@ -12,21 +12,36 @@ import logging
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
+# SendGrid imports
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Email, To, Content
+
 
 @dataclass
 class EmailConfig:
-    """Email configuration"""
-    host: str
-    port: int
-    username: str
-    password: str
+    """Email configuration - supports both SendGrid API and SMTP"""
+    # Provider selection
+    provider: str = "sendgrid"  # Options: 'sendgrid' or 'smtp'
+
+    # SendGrid configuration
+    sendgrid_api_key: str = ""
+
+    # SMTP configuration (fallback)
+    host: str = ""
+    port: int = 465
+    username: str = ""
+    password: str = ""
     use_tls: bool = True
+
+    # Common settings (used by both providers)
     from_email: str = ""
     from_name: str = "HR Automation System"
+
     # Timeout configurations
     connect_timeout: float = 10.0
     socket_timeout: float = 10.0
-    # Connection pooling
+
+    # Connection pooling (SMTP only)
     pool_size: int = 5
     max_idle_time: float = 300.0  # 5 minutes
 
@@ -39,6 +54,7 @@ class EmailMessage:
     subject: str
     template_name: str
     template_data: Dict[str, Any]
+    cc_emails: Optional[List[str]] = None  # CC recipients (email addresses only)
 
 
 class EmailService:
@@ -46,14 +62,30 @@ class EmailService:
 
     def __init__(self, config: EmailConfig):
         self.config = config
+        self.provider = config.provider.lower()
+
+        # Initialize SendGrid client if using SendGrid
+        if self.provider == 'sendgrid':
+            self.sendgrid_client = SendGridAPIClient(config.sendgrid_api_key) if config.sendgrid_api_key else None
+            print(f"[EMAIL] Email service initialized with SendGrid API")
+        else:
+            self.sendgrid_client = None
+
+        # SMTP connection management (for SMTP fallback)
         self._smtp = None
         self._last_used = None
         self._connection_lock = asyncio.Lock()
+
+        # Jinja2 template engine (used by both providers)
         self.jinja_env = Environment(
             loader=FileSystemLoader("app/templates/email"),
             autoescape=True
         )
-        print(f"[EMAIL] Email service initialized with timeout={config.connect_timeout}s")
+
+        if self.provider == 'smtp':
+            print(f"[EMAIL] Email service initialized with SMTP (timeout={config.connect_timeout}s)")
+
+        print(f"[EMAIL] Active provider: {self.provider.upper()}")
 
     def _create_email_log(self, message: EmailMessage, db: Session) -> int:
         """Create email log entry in database before sending"""
@@ -118,44 +150,157 @@ class EmailService:
             db.rollback()
 
     async def _get_connection(self):
-        """Get SMTP connection with connection pooling"""
+        """Create fresh SMTP connection for each email to avoid timeouts"""
         async with self._connection_lock:
-            # Check if we need to create a new connection
-            if (self._smtp is None or
-                self._last_used is None or
-                time.time() - self._last_used > self.config.max_idle_time):
+            # ALWAYS create a new connection to avoid SMTP timeout issues
+            print(f"[EMAIL] Creating new SMTP connection to {self.config.host}:{self.config.port}")
+            connect_start = time.time()
 
-                print(f"[EMAIL] Creating new SMTP connection to {self.config.host}:{self.config.port}")
-                connect_start = time.time()
+            # Close old connection if exists
+            if self._smtp:
+                try:
+                    await self._smtp.quit()
+                except:
+                    pass
+                self._smtp = None
 
-                # Close old connection if exists
-                if self._smtp:
-                    try:
-                        await self._smtp.quit()
-                    except:
-                        pass
+            # Create new connection with timeout
+            self._smtp = aiosmtplib.SMTP(
+                hostname=self.config.host,
+                port=self.config.port,
+                use_tls=self.config.use_tls,
+                timeout=self.config.connect_timeout
+            )
 
-                # Create new connection with timeout
-                self._smtp = aiosmtplib.SMTP(
-                    hostname=self.config.host,
-                    port=self.config.port,
-                    use_tls=self.config.use_tls,
-                    timeout=self.config.connect_timeout
-                )
+            # Connect and login
+            await self._smtp.connect()
+            await self._smtp.login(self.config.username, self.config.password)
 
-                # Connect and login
-                await self._smtp.connect()
-                await self._smtp.login(self.config.username, self.config.password)
-
-                connect_time = time.time() - connect_start
-                print(f"[EMAIL] SMTP connection established in {connect_time:.3f}s")
+            connect_time = time.time() - connect_start
+            print(f"[EMAIL] SMTP connection established in {connect_time:.3f}s")
 
             self._last_used = time.time()
             return self._smtp
 
+    async def _send_via_sendgrid(self, message: EmailMessage, html_content: str, text_content: str) -> tuple[bool, str]:
+        """Send email using SendGrid API"""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            logger.info(f"[SENDGRID] Sending email via SendGrid API")
+            logger.info(f"[SENDGRID] To: {message.to_email} ({message.to_name})")
+            if message.cc_emails:
+                logger.info(f"[SENDGRID] CC: {', '.join(message.cc_emails)}")
+            logger.info(f"[SENDGRID] Subject: {message.subject}")
+            print(f"[EMAIL] [SENDGRID] Sending via SendGrid API to {message.to_email}")
+            if message.cc_emails:
+                print(f"[EMAIL] [SENDGRID] CC: {', '.join(message.cc_emails)}")
+
+            # Create SendGrid Mail object
+            sg_message = Mail(
+                from_email=Email(self.config.from_email, self.config.from_name),
+                to_emails=To(message.to_email, message.to_name),
+                subject=message.subject,
+                html_content=Content("text/html", html_content),
+                plain_text_content=Content("text/plain", text_content)
+            )
+
+            # Add CC recipients if provided
+            if message.cc_emails:
+                from sendgrid.helpers.mail import Cc
+                for cc_email in message.cc_emails:
+                    sg_message.add_cc(Cc(cc_email))
+
+            # Send via SendGrid
+            send_start = time.time()
+            response = self.sendgrid_client.send(sg_message)
+            send_time = time.time() - send_start
+
+            logger.info(f"[SENDGRID] Send took {send_time:.3f}s, Status: {response.status_code}")
+            print(f"[EMAIL] [SENDGRID] SendGrid send took {send_time:.3f}s")
+            print(f"[EMAIL] [SENDGRID] SendGrid Response: Status={response.status_code}")
+
+            # Check response
+            if response.status_code >= 200 and response.status_code < 300:
+                logger.info(f"[SENDGRID] Email sent successfully via SendGrid to {message.to_email}")
+                return True, f"SendGrid: {response.status_code}"
+            else:
+                logger.error(f"[SENDGRID] SendGrid error: {response.body}")
+                print(f"[EMAIL] [SENDGRID] SendGrid error: {response.body}")
+                return False, f"SendGrid error: {response.status_code}"
+
+        except Exception as e:
+            logger.error(f"[SENDGRID] SendGrid send failed: {e}")
+            print(f"[EMAIL] [SENDGRID] SendGrid send failed: {e}")
+            return False, str(e)
+
+    async def _send_via_smtp(self, message: EmailMessage, html_content: str, text_content: str) -> tuple[bool, str]:
+        """Send email using SMTP"""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            logger.info(f"[SMTP] Sending email via SMTP")
+            logger.info(f"[SMTP] To: {message.to_email} ({message.to_name})")
+            if message.cc_emails:
+                logger.info(f"[SMTP] CC: {', '.join(message.cc_emails)}")
+            logger.info(f"[SMTP] Subject: {message.subject}")
+            print(f"[EMAIL] [SMTP] Sending via SMTP to {message.to_email}")
+            if message.cc_emails:
+                print(f"[EMAIL] [SMTP] CC: {', '.join(message.cc_emails)}")
+
+            # Create email message
+            prep_start = time.time()
+            email_msg = MIMEMultipart("alternative")
+            email_msg["From"] = f"{self.config.from_name} <{self.config.from_email}>"
+            email_msg["To"] = f"{message.to_name} <{message.to_email}>"
+            email_msg["Subject"] = message.subject
+
+            # Add CC header if provided
+            if message.cc_emails:
+                email_msg["Cc"] = ", ".join(message.cc_emails)
+
+            # Attach HTML and text parts
+            html_part = MIMEText(html_content, "html", "utf-8")
+            text_part = MIMEText(text_content, "plain", "utf-8")
+
+            email_msg.attach(text_part)
+            email_msg.attach(html_part)
+            prep_time = time.time() - prep_start
+            print(f"[EMAIL] [SMTP] Message preparation took {prep_time:.3f}s")
+
+            # Get connection and send
+            smtp_start = time.time()
+            smtp = await self._get_connection()
+
+            # Ensure connection is active before sending
+            if not smtp.is_connected:
+                logger.info("[SMTP] Connection not active, reconnecting...")
+                print("[EMAIL] [SMTP] Connection not active, reconnecting...")
+                await smtp.connect()
+                await smtp.login(self.config.username, self.config.password)
+
+            response = await smtp.send_message(email_msg)
+            smtp_time = time.time() - smtp_start
+            logger.info(f"[SMTP] SMTP send took {smtp_time:.3f}s")
+            print(f"[EMAIL] [SMTP] SMTP send took {smtp_time:.3f}s")
+
+            response_str = str(response)
+            logger.info(f"[SMTP] SMTP Response: {response_str}")
+            print(f"[EMAIL] [SMTP] SMTP Response: {response_str}")
+
+            logger.info(f"[SMTP] Email sent successfully via SMTP to {message.to_email}")
+            return True, response_str
+
+        except Exception as e:
+            logger.error(f"[SMTP] SMTP send failed: {e}")
+            print(f"[EMAIL] [SMTP] SMTP send failed: {e}")
+            return False, str(e)
+
     async def send_email(self, message: EmailMessage) -> bool:
         """
-        Send an email using configured SMTP with connection pooling
+        Send an email using configured provider (SendGrid or SMTP)
 
         Args:
             message: Email message to send
@@ -163,7 +308,18 @@ class EmailService:
         Returns:
             True if sent successfully, False otherwise
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         send_start = time.time()
+
+        # Log provider selection at the start
+        logger.info(f"[EMAIL] Using email provider: {self.provider.upper()}")
+        print(f"[EMAIL] ========================================")
+        print(f"[EMAIL] PROVIDER: {self.provider.upper()}")
+        print(f"[EMAIL] To: {message.to_email}")
+        print(f"[EMAIL] Subject: {message.subject}")
+        print(f"[EMAIL] ========================================")
 
         # Create database session for logging
         from app.database import SessionLocal
@@ -176,51 +332,47 @@ class EmailService:
 
             print(f"[EMAIL] Sending email to {message.to_email}: {message.subject}")
 
-            # Render email template
+            # Render email template (common for both providers)
             render_start = time.time()
             html_content = self._render_template(message.template_name, message.template_data)
             text_content = self._render_text_template(message.template_name, message.template_data)
             render_time = time.time() - render_start
             print(f"[EMAIL] Template rendering took {render_time:.3f}s")
 
-            # Create email message
-            prep_start = time.time()
-            email_msg = MIMEMultipart("alternative")
-            email_msg["From"] = f"{self.config.from_name} <{self.config.from_email}>"
-            email_msg["To"] = f"{message.to_name} <{message.to_email}>"
-            email_msg["Subject"] = message.subject
+            # Route to appropriate provider
+            logger.info(f"[EMAIL] Routing to provider: {self.provider}")
+            if self.provider == 'sendgrid':
+                success, response_str = await self._send_via_sendgrid(message, html_content, text_content)
+            else:
+                success, response_str = await self._send_via_smtp(message, html_content, text_content)
 
-            # Attach HTML and text parts
-            html_part = MIMEText(html_content, "html", "utf-8")
-            text_part = MIMEText(text_content, "plain", "utf-8")
+            # Handle response
+            import logging
+            logger = logging.getLogger(__name__)
 
-            email_msg.attach(text_part)
-            email_msg.attach(html_part)
-            prep_time = time.time() - prep_start
-            print(f"[EMAIL] Message preparation took {prep_time:.3f}s")
+            if not success:
+                # Send failed
+                error_msg = f"Email send failed: {response_str}"
+                if email_log_id:
+                    error_type = 'smtp_error' if self.provider == 'smtp' else 'sendgrid_error'
+                    self._update_email_log_failure(email_log_id, db, error_msg, error_type)
+                logger.error(f"[ERROR] {error_msg} to {message.to_email}")
+                return False
 
-            # Get connection and send
-            smtp_start = time.time()
-            smtp = await self._get_connection()
-
-            # Ensure connection is active before sending
-            if not smtp.is_connected:
-                print("[EMAIL] Connection not active, reconnecting...")
-                await smtp.connect()
-                await smtp.login(self.config.username, self.config.password)
-
-            response = await smtp.send_message(email_msg)
-            smtp_time = time.time() - smtp_start
-            print(f"[EMAIL] SMTP send took {smtp_time:.3f}s")
+            # Check for concerning response patterns (SMTP queued messages)
+            if self.provider == 'smtp' and 'queued' in response_str.lower():
+                logger.warning(f"[WARNING] Email queued but may not deliver to {message.to_email}. Response: {response_str}")
+                logger.warning(f"[WARNING] This often indicates SPF/DKIM issues or spam filtering. Check email provider settings.")
 
             # Update email log with success
             if email_log_id:
-                self._update_email_log_success(email_log_id, db, smtp_response=str(response))
+                self._update_email_log_success(email_log_id, db, smtp_response=response_str)
 
             total_time = time.time() - send_start
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.info(f"[SUCCESS] Email sent to {message.to_email} in {total_time:.3f}s (log_id={email_log_id})")
+            if self.provider == 'smtp' and 'queued' in response_str.lower():
+                logger.warning(f"[QUEUED] Email queued to {message.to_email} in {total_time:.3f}s (log_id={email_log_id}) - May not deliver!")
+            else:
+                logger.info(f"[SUCCESS] Email sent to {message.to_email} in {total_time:.3f}s (log_id={email_log_id})")
             return True
 
         except asyncio.TimeoutError as e:
@@ -286,7 +438,7 @@ class EmailService:
                 else:
                     results["failed"] += 1
             except Exception as e:
-                print(f"❌ Bulk email failed: {str(e)}")
+                print(f"[ERROR] Bulk email failed: {str(e)}")
                 results["failed"] += 1
 
         return results
@@ -297,7 +449,7 @@ class EmailService:
             template = self.jinja_env.get_template(f"{template_name}.html")
             return template.render(**data)
         except Exception as e:
-            print(f"❌ Template rendering error for {template_name}.html: {str(e)}")
+            print(f"[ERROR] Template rendering error for {template_name}.html: {str(e)}")
             return self._fallback_template(data)
 
     def _render_text_template(self, template_name: str, data: Dict[str, Any]) -> str:
@@ -306,7 +458,7 @@ class EmailService:
             template = self.jinja_env.get_template(f"{template_name}.txt")
             return template.render(**data)
         except Exception as e:
-            print(f"❌ Text template rendering error for {template_name}.txt: {str(e)}")
+            print(f"[ERROR] Text template rendering error for {template_name}.txt: {str(e)}")
             return self._fallback_text_template(data)
 
     def _fallback_template(self, data: Dict[str, Any]) -> str:
@@ -408,6 +560,11 @@ class EmailTemplates:
         # Import from unified config
         from config import settings
 
+        # Parse CC emails from config (comma-separated)
+        cc_emails = None
+        if settings.HR_EMAIL_CC:
+            cc_emails = [email.strip() for email in settings.HR_EMAIL_CC.split(',') if email.strip()]
+
         return EmailMessage(
             to_email=settings.HR_EMAIL,
             to_name="HR Department",
@@ -419,7 +576,8 @@ class EmailTemplates:
                 "message_type": message_type,
                 "submission_data": submission_data,
                 "current_date": datetime.now().strftime("%B %d, %Y")
-            }
+            },
+            cc_emails=cc_emails
         )
 
     # Phase 3: Corrected Exit Interview Email Templates
@@ -451,6 +609,11 @@ class EmailTemplates:
         # Import from unified config
         from config import settings
 
+        # Parse CC emails from config (comma-separated)
+        cc_emails = None
+        if settings.HR_EMAIL_CC:
+            cc_emails = [email.strip() for email in settings.HR_EMAIL_CC.split(',') if email.strip()]
+
         return EmailMessage(
             to_email=settings.HR_EMAIL,
             to_name="HR Department",
@@ -466,7 +629,8 @@ class EmailTemplates:
                 "last_working_day": submission_data.get("last_working_day", ""),
                 "current_date": datetime.now().strftime("%B %d, %Y"),
                 "skip_url": submission_data.get("skip_url", None)
-            }
+            },
+            cc_emails=cc_emails
         )
 
     @staticmethod
@@ -474,6 +638,11 @@ class EmailTemplates:
         """Create reminder for HR to submit interview feedback"""
         # Import from unified config
         from config import settings
+
+        # Parse CC emails from config (comma-separated)
+        cc_emails = None
+        if settings.HR_EMAIL_CC:
+            cc_emails = [email.strip() for email in settings.HR_EMAIL_CC.split(',') if email.strip()]
 
         return EmailMessage(
             to_email=settings.HR_EMAIL,
@@ -491,7 +660,8 @@ class EmailTemplates:
                 "days_overdue": submission_data.get("days_overdue", 0),
                 "interview_id": submission_data.get("interview_id", ""),
                 "current_date": datetime.now().strftime("%B %d, %Y")
-            }
+            },
+            cc_emails=cc_emails
         )
 
     @staticmethod
@@ -538,27 +708,32 @@ class EmailTemplates:
         )
 
     @staticmethod
-    def hr_interview_scheduling_request(submission_data: Dict[str, Any], interview_url: str) -> EmailMessage:
-        """Create HR interview scheduling request email with form"""
+    def hr_exit_interview_reminder(submission_data: Dict[str, Any], platform_url: str) -> EmailMessage:
+        """Create HR exit interview reminder email - simple link to platform"""
         # Import from unified config
         from config import settings
+
+        # Parse CC emails from config (comma-separated)
+        cc_emails = None
+        if settings.HR_EMAIL_CC:
+            cc_emails = [email.strip() for email in settings.HR_EMAIL_CC.split(',') if email.strip()]
 
         return EmailMessage(
             to_email=settings.HR_EMAIL,
             to_name="HR Department",
-            subject=f"Action Required: Schedule Exit Interview for {submission_data['employee_name']}",
-            template_name="hr_interview_scheduling_request",
+            subject=f"Exit Interview Required: {submission_data['employee_name']}",
+            template_name="hr_exit_interview_reminder",
             template_data={
                 "employee_name": submission_data["employee_name"],
                 "employee_email": submission_data["employee_email"],
                 "submission_id": submission_data["submission_id"],
+                "department": submission_data.get("department", "General"),
+                "position": submission_data.get("position", "Employee"),
                 "last_working_day": submission_data.get("last_working_day", ""),
-                "submission_date": submission_data.get("submission_date", ""),
-                "leader_notes": submission_data.get("leader_notes", ""),
-                "chinese_head_notes": submission_data.get("chinese_head_notes", ""),
-                "interview_scheduling_url": interview_url,
+                "platform_url": platform_url,
                 "current_date": datetime.now().strftime("%B %d, %Y")
-            }
+            },
+            cc_emails=cc_emails
         )
 
 
@@ -579,13 +754,22 @@ def create_email_service() -> EmailService:
     from config import settings
 
     config = EmailConfig(
+        # Provider selection
+        provider=settings.EMAIL_PROVIDER,
+        sendgrid_api_key=settings.SENDGRID_API_KEY,
+
+        # SMTP configuration (fallback)
         host=settings.SMTP_HOST,
         port=settings.SMTP_PORT,
         username=settings.SMTP_USER,
         password=settings.SMTP_PASS,
         use_tls=settings.SMTP_USE_TLS,
+
+        # Common settings
         from_email=settings.SMTP_FROM_EMAIL,
         from_name=settings.SMTP_FROM_NAME,
+
+        # Timeouts
         connect_timeout=settings.SMTP_TIMEOUT,
         socket_timeout=settings.SMTP_SOCKET_TIMEOUT
     )

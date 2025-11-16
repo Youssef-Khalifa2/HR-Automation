@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.core.auth import get_current_hr_user
+from app.core.auth import get_current_user
 from app.services.reminder_service import get_reminder_service
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/reminders", tags=["reminders"])
 async def check_pending_reminders(
     force: bool = False,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
     Manually trigger reminder check for all pending approvals
@@ -61,7 +61,7 @@ async def check_pending_reminders(
 @router.get("/status/")
 async def get_reminder_status(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
     Get current status of pending items that may need reminders
@@ -149,7 +149,7 @@ async def get_reminder_status(
 async def send_leader_reminder(
     submission_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Send a manual reminder to the team leader for a specific submission"""
     try:
@@ -187,7 +187,7 @@ async def send_leader_reminder(
 async def send_chm_reminder(
     submission_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Send a manual reminder to the CHM for a specific submission"""
     try:
@@ -225,7 +225,7 @@ async def send_chm_reminder(
 async def send_it_reminder(
     submission_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Send a manual reminder to IT for a specific submission"""
     try:

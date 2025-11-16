@@ -137,21 +137,28 @@ async def create_public_submission(
                 logger.info(f"✅ Leader mapped: {leader_name} → {leader_email}")
                 logger.info(f"✅ CHM mapped: {chm_name} → {chm_email}")
             else:
-                logger.warning(f"⚠️  Leader '{leader_name}' not found in mapping")
-                # Fall back to default if no mapping found
-                leader_email = "youssefkhalifa@51talk.com"
-                logger.info(f"   Using fallback leader_email: {leader_email}")
+                logger.error(f"❌ Leader '{leader_name}' not found in mapping!")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Leader '{leader_name}' not found in the mapping. Please contact HR to update the mapping CSV."
+                )
         else:
-            logger.warning(f"⚠️  No leader_name provided")
-            leader_email = "youssefkhalifa@51talk.com"
-            logger.info(f"   Using fallback leader_email: {leader_email}")
+            logger.error(f"❌ No leader_name provided in submission!")
+            raise HTTPException(
+                status_code=400,
+                detail="Leader name is required. Please select your team leader."
+            )
 
-        # Create the submission using the PublicSubmissionCreate data
+        # Create the submission with leader/CHM emails stored
         from app.schemas_all import SubmissionCreate
         submission_create = SubmissionCreate(
             employee_name=submission_data.employee_name,
             employee_email=submission_data.employee_email,
-            joining_date=submission_data.joining_date,
+            employee_id=getattr(submission_data, 'employee_id', None),
+            department=submission_data.department,
+            team_leader_email=leader_email,
+            chm_email=chm_email,
+            joining_date=getattr(submission_data, 'joining_date', None),
             submission_date=submission_data.submission_date,
             last_working_day=submission_data.last_working_day
         )
@@ -169,8 +176,7 @@ async def create_public_submission(
                 "leader_email": leader_email,
                 "leader_name": leader_name,
                 "department": submission_data.department,
-                "position": submission_data.position,
-                "reason": submission_data.reason
+                "reason": getattr(submission_data, 'reason', None)
             }
         )
         logger.info(f"✅ Submission created: ID {submission.id}")
@@ -257,11 +263,10 @@ async def feishu_webhook(
                 "employee_email": submission.employee_email,
                 "submission_date": submission.submission_date.strftime("%Y-%m-%d"),
                 "last_working_day": submission.last_working_day.strftime("%Y-%m-%d"),
-                "leader_email": submission_data.leader_email or "youssefkhalifa@51talk.com",
+                "leader_email": leader_email,
                 "leader_name": submission_data.leader_name or "Team Leader",
                 "department": submission_data.department,
-                "position": submission_data.position,
-                "reason": submission_data.reason
+                "reason": getattr(submission_data, 'reason', None)
             }
         )
         print(f"✅ Created submission {submission.id} for {submission.employee_name}")
@@ -380,7 +385,7 @@ async def send_leader_approval_email(submission_id: int, additional_data: Dict[s
             "employee_email": additional_data.get("employee_email"),
             "submission_date": additional_data.get("submission_date"),
             "last_working_day": additional_data.get("last_working_day"),
-            "leader_email": additional_data.get("leader_email", "youssefkhalifa@51talk.com"),
+            "leader_email": additional_data.get("leader_email"),
             "leader_name": additional_data.get("leader_name", "Team Leader")
         }
 
@@ -388,10 +393,10 @@ async def send_leader_approval_email(submission_id: int, additional_data: Dict[s
         email_message = EmailTemplates.leader_approval_request(email_data, approval_url)
         await email_service.send_email(email_message)
 
-        print(f"✅ Leader approval email sent for submission {submission_id}")
+        print(f"[SUCCESS] Leader approval email sent for submission {submission_id}")
 
     except Exception as e:
-        print(f"❌ Failed to send leader approval email: {str(e)}")
+        print(f"[ERROR] Failed to send leader approval email: {str(e)}")
         # Don't raise - background task shouldn't fail the request
 
 

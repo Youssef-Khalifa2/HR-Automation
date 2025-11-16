@@ -1,0 +1,86 @@
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/.cache/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+README*.md
+SECURITY_CRITICAL_FIXES.md
+README_PRODUCTION_STATUS.md
+
+# Scripts (keep migration scripts but exclude test/dev scripts)
+test*.py
+*_test.py
+check_*.py
+delete_*.py
+clear_cache.py
+
+# Logs
+*.log
+logs/
+
+# Database (local only)
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+NUL
+=6.10.0
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Assets (if large)
+# Assets/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml

@@ -115,6 +115,25 @@ export const useToggleMedicalCard = () => {
   });
 };
 
+export const useSendVendorEmail = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, vendorData }: { id: number; vendorData: { vendor_type: string; custom_email?: string } }) => {
+      const { data } = await api.post(`/api/submissions/${id}/send-vendor-email/`, vendorData);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['submission'] });
+      toast.success(`Vendor email sent successfully to ${data.sent_to.join(', ')}`);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to send vendor email');
+    },
+  });
+};
+
 export const useFinalizeOffboarding = () => {
   const queryClient = useQueryClient();
 

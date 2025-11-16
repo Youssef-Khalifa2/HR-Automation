@@ -42,26 +42,27 @@ class LeaderMapping:
                 reader = csv.DictReader(file)
 
                 for row in reader:
-                    # Skip empty rows
-                    if not row.get('Team Leader Name', '').strip():
+                    # Skip empty rows - handle None values safely
+                    team_leader_name_value = row.get('Team Leader Name') or row.get('Team Leader Name ')
+                    if not (team_leader_name_value or '').strip():
                         continue
 
                     # Map leader name to email
-                    leader_name = (row.get('Team Leader Name') or '').strip()
-                    leader_email = (row.get('Team Leader Email') or '').strip()
+                    leader_name = (row.get('Team Leader Name') or row.get('Team Leader Name ') or '').strip()
+                    leader_email = (row.get('Team Leader Email') or row.get('Team Leader Email ') or '').strip()
                     if leader_name and leader_email:
                         self.leader_mapping[leader_name.lower()] = leader_email
 
                     # Map Chinese head name to email
-                    chm_name = (row.get('Chinese Head Name') or '').strip()
-                    chm_email = (row.get('Chinese Head Email') or '').strip()
+                    chm_name = (row.get('Chinese Head Name') or row.get('Chinese Head Name ') or '').strip()
+                    chm_email = (row.get('Chinese Head Email') or row.get('Chinese Head Email ') or '').strip()
                     if chm_name and chm_email:
                         self.chm_mapping[chm_name.lower()] = chm_email
 
-                    # Map CRM to leader info (handle potential column name variations)
-                    crm = row.get('Crm', '').strip() or row.get('crm', '').strip()
-                    vendor_email = row.get('Vendor Email', '').strip()
-                    department = row.get('Department', '').strip()
+                    # Map CRM to leader info (handle potential column name variations and spaces)
+                    crm = (row.get('Crm') or row.get('Crm ') or row.get('crm') or '').strip()
+                    vendor_email = (row.get('Vendor Email') or row.get('Vendor Email ') or '').strip()
+                    department = (row.get('Department') or row.get('Department ') or '').strip()
 
                     if crm and leader_name:
                         self.crm_mapping[crm.lower()] = {
@@ -123,6 +124,31 @@ class LeaderMapping:
             logger.warning(f"[WARN] CHM not found in mapping: {chm_name}")
 
         return email
+
+    def get_name_from_email(self, email: str, role: str = 'leader') -> Optional[str]:
+        """Get name from email (reverse lookup)
+
+        Args:
+            email: Email address to lookup
+            role: Role type - 'leader' or 'chm'
+
+        Returns:
+            Name if found, None otherwise
+        """
+        if not email:
+            return None
+
+        email_lower = email.lower().strip()
+
+        # Select correct mapping based on role
+        mapping = self.chm_mapping if role == 'chm' else self.leader_mapping
+
+        # Reverse lookup: find key (name) by value (email)
+        for name, mapped_email in mapping.items():
+            if mapped_email.lower() == email_lower:
+                return name.title()  # Return proper case name
+
+        return None
 
     def get_leader_info(self, leader_name: str) -> Optional[Dict[str, str]]:
         """Get complete leader info including CHM details

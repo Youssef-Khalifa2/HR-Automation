@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: hr-automation-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hr-automation-api
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/appdb
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - SIGNING_SECRET=dev-signing-secret-change-in-production
+      - APP_BASE_URL=http://localhost:8000
+      - FRONTEND_URL=http://localhost:5173
+      - EMAIL_PROVIDER=sendgrid
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - SMTP_HOST=smtp.qiye.aliyun.com
+      - SMTP_PORT=465
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
+      - SMTP_FROM_NAME=HR Automation System
+      - HR_EMAIL=${HR_EMAIL:-hr@company.com}
+      - HR_EMAIL_CC=${HR_EMAIL_CC:-}
+      - IT_EMAIL=${IT_EMAIL:-it@company.com}
+      - ENABLE_AUTO_REMINDERS=true
+      - REMINDER_THRESHOLD_HOURS=24
+      - ENVIRONMENT=development
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./app/templates:/app/app/templates
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend (for production builds)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hr-automation-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: hr-automation-network

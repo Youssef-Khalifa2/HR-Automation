@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.asset import Asset
 from app.models.submission import Submission
 from app.models.user import User
-from app.core.auth import get_current_hr_user
+from app.core.auth import get_current_user
 from app.schemas_all import AssetCreate, AssetUpdate, AssetResponse
 import logging
 
@@ -20,7 +20,7 @@ def create_or_update_asset(
     submission_id: int,
     asset_data: AssetCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Create or update asset record for submission"""
     # Check if submission exists
@@ -53,29 +53,48 @@ def create_or_update_asset(
         return new_asset
 
 
-@router.get("/", response_model=List[AssetResponse])
+@router.get("/")
 def list_assets(
     returned: Optional[bool] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """List assets with optional filters"""
-    query = db.query(Asset)
+    """List assets with employee information"""
+    # Use proper join with both Asset and Submission models
+    query = db.query(Asset, Submission).join(Submission, Asset.res_id == Submission.id)
 
     if returned is not None:
         query = query.filter(Asset.assets_returned == returned)
 
-    assets = query.offset(skip).limit(limit).all()
-    return assets
+    results = query.offset(skip).limit(limit).all()
+
+    # Return assets with submission data from the join
+    result = []
+    for asset, submission in results:
+        result.append({
+            "id": asset.id,
+            "res_id": asset.res_id,
+            "assets_returned": asset.assets_returned,
+            "notes": asset.notes,
+            "created_at": asset.created_at.isoformat() if asset.created_at else None,
+            "updated_at": asset.updated_at.isoformat() if asset.updated_at else None,
+            "employee_name": submission.employee_name,
+            "employee_email": submission.employee_email,
+            "department": submission.department,
+            "resignation_status": submission.resignation_status,
+            "last_working_day": submission.last_working_day.strftime("%Y-%m-%d") if submission.last_working_day else "N/A"
+        })
+
+    return result
 
 
 @router.get("/{asset_id}", response_model=AssetResponse)
 def get_asset(
     asset_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get asset by ID"""
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
@@ -88,7 +107,7 @@ def get_asset(
 async def mark_asset_returned(
     asset_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Mark assets as returned"""
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
@@ -118,7 +137,7 @@ async def mark_asset_returned(
 def delete_asset(
     asset_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_hr_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Delete asset record"""
     asset = db.query(Asset).filter(Asset.id == asset_id).first()

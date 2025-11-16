@@ -68,18 +68,19 @@ class TokenizedFormService:
             if not payload:
                 return False, None, "Invalid token"
 
-            # Extract additional data from the token
-            additional_data = payload.get("additional_data", {})
-            if not additional_data:
-                return False, None, "Token missing form data"
-
             # Check if this is a form token
             action = payload.get("action", "")
             if not action.startswith("form_"):
                 return False, None, "Invalid token type"
 
-            # Token is valid - extract the form data
-            form_data = additional_data.get("data", {})
+            # Extract the nested data from the token
+            # The additional_data was merged into payload, so we get "data" directly
+            form_data = payload.get("data", {})
+
+            if not form_data:
+                return False, None, "Token missing form data"
+
+            # Token is valid - return the form data
             return True, form_data, "Token valid"
 
         except Exception as e:

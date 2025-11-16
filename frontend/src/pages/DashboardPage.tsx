@@ -65,9 +65,9 @@ export default function DashboardPage() {
             ) : upcomingInterviews && upcomingInterviews.length > 0 ? (
               <div className="space-y-3">
                 {upcomingInterviews.map((interview) => (
-                  <div key={interview.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                  <div key={interview.interview_id || interview.submission_id} className="flex items-center justify-between border-b pb-2 last:border-0">
                     <div>
-                      <p className="font-medium">{interview.submission?.employee_name}</p>
+                      <p className="font-medium">{interview.employee_name}</p>
                       <p className="text-sm text-muted-foreground">
                         {formatDate(interview.scheduled_date)} at {interview.scheduled_time}
                       </p>

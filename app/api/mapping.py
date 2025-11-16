@@ -2,7 +2,7 @@
 Leader mapping API endpoints
 """
 from fastapi import APIRouter, HTTPException
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
 
 from app.services.leader_mapping import get_leader_mapping
@@ -21,7 +21,23 @@ class LeaderInfoResponse(BaseModel):
     chm_email: Optional[str] = None
 
 
-@router.get("/leaders", response_model=Dict[str, str])
+class LeadersResponse(BaseModel):
+    count: int
+    leaders: Dict[str, str]
+
+
+class CHMsResponse(BaseModel):
+    count: int
+    chms: Dict[str, str]
+
+
+class SearchResponse(BaseModel):
+    query: str
+    count: int
+    matches: Dict[str, str]
+
+
+@router.get("/leaders", response_model=LeadersResponse)
 def get_all_leaders():
     """Get all leader mappings"""
     try:
@@ -35,7 +51,21 @@ def get_all_leaders():
         raise HTTPException(status_code=500, detail=f"Failed to get leaders: {str(e)}")
 
 
-@router.post("/leaders/search", response_model=Dict[str, str])
+@router.get("/chms", response_model=CHMsResponse)
+def get_all_chms():
+    """Get all CHM (Chinese Head) mappings"""
+    try:
+        mapping = get_leader_mapping()
+        chms = mapping.chm_mapping
+        return {
+            "count": len(chms),
+            "chms": chms
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get CHMs: {str(e)}")
+
+
+@router.post("/leaders/search", response_model=SearchResponse)
 def search_leaders(request: LeaderSearchRequest):
     """Search leaders by name"""
     try:
