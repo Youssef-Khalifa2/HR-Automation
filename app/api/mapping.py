@@ -1,11 +1,14 @@
 """
 Leader mapping API endpoints
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app.services.leader_mapping import get_leader_mapping
+from app.database import get_db
+from app.models.config import TeamMapping
 
 router = APIRouter(prefix="/api/mapping", tags=["leader-mapping"])
 
@@ -38,11 +41,19 @@ class SearchResponse(BaseModel):
 
 
 @router.get("/leaders", response_model=LeadersResponse)
-def get_all_leaders():
-    """Get all leader mappings"""
+def get_all_leaders(db: Session = Depends(get_db)):
+    """Get all leader mappings from database"""
     try:
-        mapping = get_leader_mapping()
-        leaders = mapping.get_all_leaders()
+        # Query active team mappings from database
+        mappings = db.query(TeamMapping).filter(TeamMapping.is_active == True).all()
+
+        # Create dictionary of leader names to emails
+        leaders = {
+            mapping.team_leader_name: mapping.team_leader_email
+            for mapping in mappings
+            if mapping.team_leader_name and mapping.team_leader_email
+        }
+
         return {
             "count": len(leaders),
             "leaders": leaders
@@ -52,11 +63,19 @@ def get_all_leaders():
 
 
 @router.get("/chms", response_model=CHMsResponse)
-def get_all_chms():
-    """Get all CHM (Chinese Head) mappings"""
+def get_all_chms(db: Session = Depends(get_db)):
+    """Get all CHM (Chinese Head) mappings from database"""
     try:
-        mapping = get_leader_mapping()
-        chms = mapping.chm_mapping
+        # Query active team mappings from database
+        mappings = db.query(TeamMapping).filter(TeamMapping.is_active == True).all()
+
+        # Create dictionary of CHM names to emails
+        chms = {
+            mapping.chinese_head_name: mapping.chinese_head_email
+            for mapping in mappings
+            if mapping.chinese_head_name and mapping.chinese_head_email
+        }
+
         return {
             "count": len(chms),
             "chms": chms
@@ -66,11 +85,21 @@ def get_all_chms():
 
 
 @router.post("/leaders/search", response_model=SearchResponse)
-def search_leaders(request: LeaderSearchRequest):
-    """Search leaders by name"""
+def search_leaders(request: LeaderSearchRequest, db: Session = Depends(get_db)):
+    """Search leaders by name from database"""
     try:
-        mapping = get_leader_mapping()
-        matches = mapping.search_leaders(request.query)
+        # Search in database for matching leader names
+        mappings = db.query(TeamMapping).filter(
+            TeamMapping.is_active == True,
+            TeamMapping.team_leader_name.ilike(f"%{request.query}%")
+        ).all()
+
+        matches = {
+            mapping.team_leader_name: mapping.team_leader_email
+            for mapping in mappings
+            if mapping.team_leader_name and mapping.team_leader_email
+        }
+
         return {
             "query": request.query,
             "count": len(matches),
@@ -81,16 +110,24 @@ def search_leaders(request: LeaderSearchRequest):
 
 
 @router.get("/leader/{leader_name}", response_model=LeaderInfoResponse)
-def get_leader_info(leader_name: str):
-    """Get leader info including CHM details"""
+def get_leader_info(leader_name: str, db: Session = Depends(get_db)):
+    """Get leader info including CHM details from database"""
     try:
-        mapping = get_leader_mapping()
-        info = mapping.get_leader_info(leader_name)
+        # Query database for leader mapping
+        mapping = db.query(TeamMapping).filter(
+            TeamMapping.is_active == True,
+            TeamMapping.team_leader_name == leader_name
+        ).first()
 
-        if not info:
+        if not mapping:
             raise HTTPException(status_code=404, detail=f"Leader '{leader_name}' not found")
 
-        return LeaderInfoResponse(**info)
+        return LeaderInfoResponse(
+            leader_name=mapping.team_leader_name,
+            leader_email=mapping.team_leader_email,
+            chm_name=mapping.chinese_head_name,
+            chm_email=mapping.chinese_head_email
+        )
 
     except HTTPException:
         raise
@@ -99,18 +136,20 @@ def get_leader_info(leader_name: str):
 
 
 @router.get("/leader/{leader_name}/email")
-def get_leader_email(leader_name: str):
-    """Get leader email by name"""
+def get_leader_email(leader_name: str, db: Session = Depends(get_db)):
+    """Get leader email by name from database"""
     try:
-        mapping = get_leader_mapping()
-        email = mapping.get_leader_email(leader_name)
+        mapping = db.query(TeamMapping).filter(
+            TeamMapping.is_active == True,
+            TeamMapping.team_leader_name == leader_name
+        ).first()
 
-        if not email:
+        if not mapping or not mapping.team_leader_email:
             raise HTTPException(status_code=404, detail=f"Leader '{leader_name}' not found")
 
         return {
             "leader_name": leader_name,
-            "leader_email": email
+            "leader_email": mapping.team_leader_email
         }
 
     except HTTPException:
@@ -120,18 +159,20 @@ def get_leader_email(leader_name: str):
 
 
 @router.get("/chm/{chm_name}/email")
-def get_chm_email(chm_name: str):
-    """Get CHM email by name"""
+def get_chm_email(chm_name: str, db: Session = Depends(get_db)):
+    """Get CHM email by name from database"""
     try:
-        mapping = get_leader_mapping()
-        email = mapping.get_chm_email(chm_name)
+        mapping = db.query(TeamMapping).filter(
+            TeamMapping.is_active == True,
+            TeamMapping.chinese_head_name == chm_name
+        ).first()
 
-        if not email:
+        if not mapping or not mapping.chinese_head_email:
             raise HTTPException(status_code=404, detail=f"CHM '{chm_name}' not found")
 
         return {
             "chm_name": chm_name,
-            "chm_email": email
+            "chm_email": mapping.chinese_head_email
         }
 
     except HTTPException:
@@ -141,16 +182,23 @@ def get_chm_email(chm_name: str):
 
 
 @router.get("/crm/{crm}")
-def get_info_by_crm(crm: str):
-    """Get leader and CHM info by CRM identifier"""
+def get_info_by_crm(crm: str, db: Session = Depends(get_db)):
+    """Get leader and CHM info by CRM identifier from database"""
     try:
-        mapping = get_leader_mapping()
-        info = mapping.get_info_by_crm(crm)
+        mapping = db.query(TeamMapping).filter(
+            TeamMapping.is_active == True,
+            TeamMapping.crm == crm
+        ).first()
 
-        if not info:
+        if not mapping:
             raise HTTPException(status_code=404, detail=f"CRM '{crm}' not found")
 
-        return LeaderInfoResponse(**info)
+        return LeaderInfoResponse(
+            leader_name=mapping.team_leader_name,
+            leader_email=mapping.team_leader_email,
+            chm_name=mapping.chinese_head_name,
+            chm_email=mapping.chinese_head_email
+        )
 
     except HTTPException:
         raise
@@ -182,17 +230,28 @@ def reload_mapping():
 
 
 @router.get("/health")
-def mapping_health():
-    """Check mapping service health"""
+def mapping_health(db: Session = Depends(get_db)):
+    """Check mapping service health from database"""
     try:
-        mapping = get_leader_mapping()
-        leaders = mapping.get_all_leaders()
-        chms = mapping.chm_mapping
+        # Query database for active mappings
+        mappings = db.query(TeamMapping).filter(TeamMapping.is_active == True).all()
+
+        leaders = {
+            m.team_leader_name: m.team_leader_email
+            for m in mappings
+            if m.team_leader_name and m.team_leader_email
+        }
+
+        chms = {
+            m.chinese_head_name: m.chinese_head_email
+            for m in mappings
+            if m.chinese_head_name and m.chinese_head_email
+        }
 
         return {
             "status": "healthy",
-            "csv_file": str(mapping.csv_file_path),
-            "csv_exists": mapping.csv_file_path.exists(),
+            "source": "database",
+            "total_mappings": len(mappings),
             "leaders_count": len(leaders),
             "chms_count": len(chms),
             "sample_leaders": dict(list(leaders.items())[:5])
