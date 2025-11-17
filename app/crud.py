@@ -103,19 +103,11 @@ def get_submissions(
 def create_submission(db: Session, submission) -> Submission:
     """Create new submission"""
     from app.models.submission import ResignationStatus, ExitInterviewStatus
-    from datetime import datetime
 
-    # Calculate in_probation status
-    # Employee is in probation if joining_date is within last 3 months
-    in_probation = False
-    if submission.joining_date:
-        months_employed = (submission.submission_date - submission.joining_date).days / 30
-        in_probation = months_employed < 3
-    # Also accept explicit value from submission if provided
-    if hasattr(submission, 'in_probation') and submission.in_probation is not None:
-        in_probation = submission.in_probation
+    # Get in_probation from submission (user-provided) or default to False
+    in_probation = getattr(submission, 'in_probation', False)
 
-    # Calculate notice period days
+    # Calculate notice period days from dates
     notice_period_days = (submission.last_working_day - submission.submission_date).days
 
     db_submission = Submission(
