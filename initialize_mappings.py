@@ -3,6 +3,8 @@
 import sys
 from app.database import SessionLocal
 from app.models.config import TeamMapping
+# Import all models to ensure they're registered with SQLAlchemy before any queries
+from app.models import user, submission, asset, exit_interview, config
 from app.services.leader_mapping import get_leader_mapping
 
 def initialize_mappings_from_csv():
@@ -55,7 +57,7 @@ def initialize_mappings_from_csv():
         db.commit()
 
         print("\n" + "="*60)
-        print("✅ CSV Import Complete!")
+        print("[SUCCESS] CSV Import Complete!")
         print(f"   New mappings imported: {imported_count}")
         print(f"   Existing mappings updated: {updated_count}")
         print(f"   Total mappings in database: {imported_count + updated_count}")
@@ -65,7 +67,7 @@ def initialize_mappings_from_csv():
 
     except Exception as e:
         db.rollback()
-        print(f"\n❌ Error importing CSV: {str(e)}")
+        print(f"\n[ERROR] Error importing CSV: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
