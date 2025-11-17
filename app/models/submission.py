@@ -63,8 +63,8 @@ class Submission(Base):
     vendor_mail_sent = Column(Boolean, nullable=False)
 
     # Probation and Notice (generated columns - read-only)
-    in_probation = Column(Boolean, nullable=False, server_default="false")
-    notice_period_days = Column(Integer, nullable=False, server_default="30")
+    in_probation = Column(Boolean, nullable=False, default=False, server_default="false")
+    notice_period_days = Column(Integer, nullable=False, default=30, server_default="30")
 
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.now())
