@@ -30,6 +30,11 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    // Only warn for non-auth endpoints
+    if (!config.url?.includes('/auth/')) {
+      console.warn('No auth token found in localStorage for request:', config.url);
+    }
   }
   return config;
 });
@@ -38,8 +43,24 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Log error details for debugging
+    console.error('API Error:', {
+      status: error.response?.status,
+      detail: error.response?.data?.detail,
+      url: error.config?.url,
+      hasToken: !!localStorage.getItem('token')
+    });
+
+    // Handle authentication errors
     if (error.response?.status === 401) {
-      // Clear token and redirect to login
+      // 401 = token invalid/expired
+      console.warn('Authentication failed, redirecting to login');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    } else if (error.response?.status === 403 && error.response?.data?.detail === 'Not authenticated') {
+      // 403 with "Not authenticated" = missing token
+      console.warn('No authentication token, redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
