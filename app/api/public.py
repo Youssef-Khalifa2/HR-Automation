@@ -8,9 +8,9 @@ from app.database import get_db
 from app.crud import create_submission
 from app.schemas_all import PublicSubmissionCreate, FeishuWebhookData, SubmissionResponse
 from app.services.email import get_email_service, EmailTemplates
-from app.services.leader_mapping import get_leader_mapping
 from app.services.submission_validator import get_submission_validator
 from app.core.security import get_approval_token_service
+from app.models.config import TeamMapping
 from config import BASE_URL
 
 router = APIRouter(prefix="/api/public", tags=["public"])
@@ -116,10 +116,7 @@ async def create_public_submission(
         if existing_info:
             logger.info(f"📋 Previous submission: {existing_info}")
 
-        # Get leader mapping service
-        leader_mapping = get_leader_mapping()
-
-        # ALWAYS use leader name to get email from mapping (ignore submitted leader_email)
+        # ALWAYS use leader name to get email from database mapping (ignore submitted leader_email)
         leader_name = submission_data.leader_name
         leader_email = None
         chm_email = None
@@ -127,20 +124,25 @@ async def create_public_submission(
 
         logger.info(f"   Using leader_name: '{leader_name}' (ignoring submitted leader_email)")
 
-        # Always try to get email from mapping first
+        # Look up leader info from database
         if leader_name:
-            leader_info = leader_mapping.get_leader_info(leader_name)
-            if leader_info:
-                leader_email = leader_info['leader_email']
-                chm_email = leader_info['chm_email']
-                chm_name = leader_info['chm_name']
+            # Query database for leader mapping
+            mapping = db.query(TeamMapping).filter(
+                TeamMapping.is_active == True,
+                TeamMapping.team_leader_name == leader_name
+            ).first()
+
+            if mapping:
+                leader_email = mapping.team_leader_email
+                chm_email = mapping.chinese_head_email
+                chm_name = mapping.chinese_head_name
                 logger.info(f"✅ Leader mapped: {leader_name} → {leader_email}")
                 logger.info(f"✅ CHM mapped: {chm_name} → {chm_email}")
             else:
-                logger.error(f"❌ Leader '{leader_name}' not found in mapping!")
+                logger.error(f"❌ Leader '{leader_name}' not found in database mapping!")
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Leader '{leader_name}' not found in the mapping. Please contact HR to update the mapping CSV."
+                    detail=f"Leader '{leader_name}' not found in the team mapping. Please contact HR to update the mapping."
                 )
         else:
             logger.error(f"❌ No leader_name provided in submission!")
